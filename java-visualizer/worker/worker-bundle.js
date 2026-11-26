@@ -2566,8 +2566,11 @@ async function deleteSubmission(request, env) {
 async function releaseStation(request, env) {
   const u = await teacherUser(request, env);
   const b = await readJson(request);
+  return doReleaseStation(env, u.email, clip2(b.id, 64));
+}
+async function doReleaseStation(env, email, id) {
+  const u = { email };
   const store = db(env);
-  const id = clip2(b.id, 64);
   const s = await settings(env);
   const out = await store.tx(async (t) => {
     const [st, teacher] = await t.getMany(["stations/" + id, "teachers/" + u.email]);
@@ -2723,6 +2726,48 @@ async function teacherSettings(request, env) {
   }
   return { ok: true };
 }
+async function pluginTeacher(request, env) {
+  const r = await pluginUser(request, env);
+  if (r.kind !== "teacher") throw new Fail(403, "teacher", "\u05D4\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D4\u05D6\u05D5 \u05DC\u05DE\u05D5\u05E8\u05D4 \u05E9\u05DE\u05D7\u05D5\u05D1\u05E8 \u05D1\u05DE\u05D7\u05E9\u05D1.");
+  return r.profile.email;
+}
+var collatorHe = new Intl.Collator("he", { numeric: true });
+async function teacherPanel(request, env) {
+  const email = await pluginTeacher(request, env);
+  const store = db(env);
+  const [t, stations, members, classes, s] = await Promise.all([
+    store.get("teachers/" + email),
+    store.query("stations", { where: [["teacher", "==", email]] }),
+    store.query("members", { where: [["teacher", "==", email]] }),
+    store.query("classes", { where: [["teacher", "==", email]] }),
+    settings(env)
+  ]);
+  const cname = new Map(classes.map((c) => [c._id, c.name || ""]));
+  const used = t && t.releases && t.releases.month === month() ? t.releases.n || 0 : 0;
+  return {
+    ok: true,
+    releasesLeft: Math.max(0, s.teacherReleases - used),
+    stations: stations.filter((x) => x.active).map((x) => ({ id: x._id, name: x.name || "", lastSeen: x.lastSeen || "", claimedAt: x.claimedAt || "" })).sort((a, b) => collatorHe.compare(a.name, b.name)),
+    students: members.filter((m) => !m.leftAt).map((m) => ({ email: m.student, name: m.name || "", className: cname.get(m.classId) || "", lastSubmitAt: m.lastSubmitAt || "", joinedAt: m.joinedAt || "" })).sort((a, b) => collatorHe.compare(a.name || a.email, b.name || b.email))
+  };
+}
+async function teacherReleaseStation(request, env) {
+  const email = await pluginTeacher(request, env);
+  const b = await readJson(request);
+  return doReleaseStation(env, email, clip2(b.id, 64));
+}
+async function teacherReleaseStudent(request, env) {
+  const email = await pluginTeacher(request, env);
+  const b = await readJson(request);
+  const student = String(b.email || "").trim().toLowerCase();
+  const store = db(env);
+  const m = await store.get("members/" + memberId(email, student));
+  if (!m || m.leftAt) throw new Fail(404, "not_found", "\u05D4\u05EA\u05DC\u05DE\u05D9\u05D3 \u05DC\u05D0 \u05E0\u05DE\u05E6\u05D0 \u05D1\u05E8\u05E9\u05D9\u05DE\u05D4 \u05E9\u05DC\u05DA.");
+  await leaveTeacher(store, student, email, "teacher");
+  const st = await store.get("students/" + student);
+  if (st && st.teacher === email) await store.merge("students/" + student, { mode: "", teacher: "", modeAt: nowIso(), removedBy: email });
+  return { ok: true };
+}
 async function teacherSummary(request, env) {
   const r = await pluginUser(request, env);
   if (r.kind !== "teacher") throw new Fail(403, "teacher", "\u05D4\u05E4\u05E2\u05D5\u05DC\u05D4 \u05D4\u05D6\u05D5 \u05DC\u05DE\u05D5\u05E8\u05D4 \u05E9\u05DE\u05D7\u05D5\u05D1\u05E8 \u05D1\u05DE\u05D7\u05E9\u05D1.");
@@ -2759,6 +2804,9 @@ var CLASSROOM_ROUTES = {
   "POST /v1/student/work": studentWork,
   "POST /v1/submit": submit,
   "POST /v1/teacher/summary": teacherSummary,
+  "POST /v1/teacher/panel": teacherPanel,
+  "POST /v1/teacher/station/release": teacherReleaseStation,
+  "POST /v1/teacher/student/release": teacherReleaseStudent,
   "GET /v1/me/console": consoleData,
   "GET /v1/me/submissions": listSubmissions,
   "GET /v1/me/submission": getSubmission,
@@ -3321,7 +3369,7 @@ async function resolveToken(env, token, machine, caps) {
     status
   };
 }
-var FEATURES = ["submit", "summary", "grades"];
+var FEATURES = ["submit", "summary", "grades", "panel"];
 async function accessReply(env, r, extra) {
   const s = await settings(env);
   const out = { ok: true, status: r.status, profile: r.profile || null, features: FEATURES };

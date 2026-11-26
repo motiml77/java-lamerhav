@@ -1376,6 +1376,29 @@ public final class Account {
         return post("/v1/teacher/summary", new LinkedHashMap<String, Object>(), headersOf(false));
     }
 
+    /**
+     * למורה שמחובר במחשב — לעמדת הניהול בתוכנה: מחשבי המעבדה שלו (body.stations: id, name, lastSeen, claimedAt), התלמידים
+     * שמשויכים אליו (body.students: email, name, className, lastSubmitAt) ו-releasesLeft. רק כשהשרת יודע ("panel")
+     */
+    public static Result teacherPanel() {
+        if (teacherInfo() == null || !serverHas(false, "panel")) return new Result("none", "", null);
+        return post("/v1/teacher/panel", new LinkedHashMap<String, Object>(), headersOf(false));
+    }
+
+    /** המורה משחרר מחשב מעבדה (ההיתר חוזר אליו; המחשב יצטרך את קוד המורה כדי להתחבר שוב) */
+    public static Result teacherReleaseStation(String id) {
+        Map<String, Object> b = new LinkedHashMap<String, Object>();
+        b.put("id", id);
+        return post("/v1/teacher/station/release", b, headersOf(false));
+    }
+
+    /** המורה מסיר תלמיד מהשיוך (התלמיד נהיה עצמאי; ההגשות נשארות אצל המורה) */
+    public static Result teacherReleaseStudent(String email) {
+        Map<String, Object> b = new LinkedHashMap<String, Object>();
+        b.put("email", email);
+        return post("/v1/teacher/student/release", b, headersOf(false));
+    }
+
     /** פותח את עמדת הניהול של המורה בדפדפן */
     public static void openManagement() {
         String u = managementUrl();

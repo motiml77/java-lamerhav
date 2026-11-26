@@ -650,6 +650,45 @@ await test('ההנהלה משייכת תלמיד למורה (גם עצמאי / �
   await call('POST', '/v1/me/class', { token: sara, body: { op: 'delete', id: cls, confirm: 'שיוך מההנהלה' } });
 });
 
+await test('עמדת הניהול בתוכנה (מורה מחובר במחשב): מחשבי המעבדה (כינוי, מתי פעלו) והתלמידים המשויכים; שחרור מחשב והסרת תלמיד', async () => {
+  const t = await signInPlugin('sara@test.dev', 'teacher', 'שרה כהן');
+  const m = machine();
+  const cl = await call('POST', '/v1/station/claim', { body: { code: codes['sara@test.dev'], name: 'מעבדה 4 · מחשב 9', machine: m, client: 'test' } });
+  assert.equal(cl.body.status, 'ok', JSON.stringify(cl.body));
+  const sid = cl.body.token.split('.')[1];
+  const kid = await signInPlugin('panel.kid@test.dev', 'student', 'ילד');
+  await call('POST', '/v1/student/register', { headers: plugin(kid), body: { fullName: 'רוני פאנל', phone: '0539998877' } });
+  assert.equal((await call('POST', '/v1/student/join', { headers: plugin(kid), body: { code: codes['sara@test.dev'] } })).body.status, 'ok');
+  const p = await call('POST', '/v1/teacher/panel', { headers: plugin(t), body: {} });
+  assert.equal(p.status, 200, JSON.stringify(p.body));
+  const st = p.body.stations.find(x => x.id === sid);
+  assert.ok(st && st.name === 'מעבדה 4 · מחשב 9' && st.lastSeen && st.claimedAt, 'המחשב עם הכינוי ומתי פעל: ' + JSON.stringify(st));
+  const kidRow = p.body.students.find(x => x.email === 'panel.kid@test.dev');
+  assert.ok(kidRow && kidRow.name === 'רוני פאנל', 'התלמיד המשויך, עם השם המלא');
+  assert.ok(Number.isInteger(p.body.releasesLeft), 'כמה שחרורים נשארו החודש');
+  assert.ok(!p.body.students.some(x => x.email === 'tamar@test.dev'), 'תלמיד עצמאי — לא ברשימה');
+  // רק מורה מחובר במחשב
+  assert.equal((await call('POST', '/v1/teacher/panel', { headers: plugin(kid), body: {} })).status, 403);
+  assert.equal((await call('POST', '/v1/teacher/panel', { body: {} })).status, 401);
+  // הסרת תלמיד: עצמאי, ההגשות נשארות אצל המורה ("עזב")
+  assert.equal((await call('POST', '/v1/teacher/student/release', { headers: plugin(t), body: { email: 'nobody@test.dev' } })).status, 404);
+  assert.equal((await call('POST', '/v1/teacher/student/release', { headers: plugin(t), body: { email: 'panel.kid@test.dev' } })).status, 200);
+  assert.ok(!(await call('POST', '/v1/teacher/panel', { headers: plugin(t), body: {} })).body.students.some(x => x.email === 'panel.kid@test.dev'), 'יצא מהרשימה');
+  assert.ok((await call('GET', '/v1/me/console', { token: sara })).body.students.find(x => x.email === 'panel.kid@test.dev').left, 'בעמדת הניהול בדפדפן — "עזב"');
+  const kidState = (await call('GET', '/v1/student/state', { headers: plugin(kid) })).body;
+  assert.ok(!kidState.teacher, 'התלמיד כבר לא משויך: ' + JSON.stringify(kidState).slice(0, 200));
+  // שחרור מחשב (אם נשארו שחרורים החודש — המכסה נבדקת בבדיקה של עמדת הניהול בדפדפן)
+  const rel = await call('POST', '/v1/teacher/station/release', { headers: plugin(t), body: { id: sid } });
+  if (p.body.releasesLeft > 0) {
+    assert.equal(rel.status, 200, JSON.stringify(rel.body));
+    assert.ok(!(await call('POST', '/v1/teacher/panel', { headers: plugin(t), body: {} })).body.stations.some(x => x.id === sid), 'המחשב יצא מהרשימה');
+  } else {
+    assert.equal(rel.status, 429, 'בלי שחרורים שנשארו — הסבר ובקשה להנהלה');
+    assert.match(rel.body.error, /בקשה להנהלה/);
+  }
+  assert.equal((await call('POST', '/v1/teacher/station/release', { headers: plugin(t), body: { id: 'nope' } })).status, 404);
+});
+
 await test('מעבר לתשלום: גם תלמיד רשום שכבר מחובר נדרש לשלם (pay); מי שעוד לא נרשם — קודם ההרשמה (בחינם), ואז התשלום', async () => {
   const fresh = await signInPlugin('gali@test.dev', 'student', 'גלי', NEW);
   assert.equal(fresh.status, 'register');

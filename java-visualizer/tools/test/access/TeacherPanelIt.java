@@ -84,6 +84,12 @@ public class TeacherPanelIt {
         p = openPanel();
         check("החלון: 'הגשה חדשה אחת מחכה לך' (" + label(p, "fresh") + ")", label(p, "fresh").equals("הגשה חדשה אחת מחכה לך (0 מתלמידים · 1 ממחשבי המעבדה)"));
         GateUi.shot(p, "panel-1b-new-submission");
+        // מחשבי המעבדה בחלון: שני המחשבים, עם הכינוי ומתי פעלו לאחרונה, וכפתור שחרור לכל אחד
+        check("החלון: 'מחשבי המעבדה שלך (2)' (" + label(p, "stations-title") + ")", label(p, "stations-title").equals("מחשבי המעבדה שלך (2)"));
+        String stText = GateUi.visibleText(p);
+        check("החלון: הכינויים של המחשבים ומתי פעלו", stText.contains("מעבדה 2 · עמדה 2") && stText.contains("פעל לאחרונה"));
+        check("החלון: כפתור 'שחרור' לכל מחשב", countIds(p, "release-station:") == 2);
+        check("החלון: 'תלמידים שמשויכים אליך (0)' — עוד אין", label(p, "students-title").equals("תלמידים שמשויכים אליך (0)"));
         Map<String, Object> me = me(t1);
         check("/account (‏/v1/me): אותו קוד, 2 מתוך 3, שני המחשבים", code1.equals(Json.str(me.get("code"))) && num(me, "used") == 2 && num(me, "seats") == 3
                 && Json.arr(me.get("stations")).size() == 2);
@@ -98,6 +104,29 @@ public class TeacherPanelIt {
         me = me(t1);
         check("/v1/me: 1 מתוך 5, מחשב אחד", num(me, "used") == 1 && num(me, "seats") == 5 && Json.arr(me.get("stations")).size() == 1);
         GateUi.shot(p, "panel-2-after-release");
+
+        // ---- 4ב. תלמיד מצטרף → מופיע בחלון; המורה מסיר אותו, ומשחרר את המחשב שנשאר — מהחלון עצמו, עם שאלה לפני
+        String kid = "panel.kid" + System.nanoTime() + "@test.dev";
+        AccountIt.api("POST", "/v1/admin/student/assign", admin, "{\"email\":\"" + kid + "\",\"teacher\":\"" + t1 + "\"}");
+        p = openPanel();
+        check("החלון: התלמיד המשויך ברשימה (" + label(p, "students-title") + ")", label(p, "students-title").equals("תלמידים שמשויכים אליך (1)") && GateUi.visibleText(p).contains(kid));
+        GateUi.shot(p, "panel-2b-computers-and-students");
+        clickId(p, "release-student:" + kid);
+        Window askKid = waitDialog("להסיר את התלמיד?", null);
+        check("שאלה לפני הסרת תלמיד", askKid != null && GateUi.visibleText(askKid).contains("ההגשות שלו נשארות אצלך"));
+        GateUi.click(askKid, "הסרה");
+        waitLabel(p, "students-title", "תלמידים שמשויכים אליך (0)");
+        check("אחרי ההסרה: אין תלמידים משויכים", label(p, "students-title").equals("תלמידים שמשויכים אליך (0)"));
+        String left = Json.str(Json.obj(Json.arr(me(t1).get("stations")).get(0)).get("id"));
+        clickId(p, "release-station:" + left);
+        Window askSt = waitDialog("לשחרר את המחשב?", null);
+        check("שאלה לפני שחרור מחשב (עם הכינוי)", askSt != null && GateUi.visibleText(askSt).contains("ההיתר חוזר אליך"));
+        GateUi.shot(askSt, "panel-2c-release-confirm");
+        GateUi.click(askSt, "שחרור");
+        waitLabel(p, "stations-title", "מחשבי המעבדה שלך (0)");
+        check("אחרי השחרור מהחלון: אין מחשבים, 0 מתוך 5 (" + label(p, "seats") + ")", label(p, "stations-title").equals("מחשבי המעבדה שלך (0)") && label(p, "seats").contains("0 מתוך 5"));
+        check("/v1/me: בלי מחשבים", Json.arr(me(t1).get("stations")).isEmpty());
+        GateUi.shot(p, "panel-2d-after-teacher-release");
 
         // ---- 5. התנתקות מהחלון: שאלה בעברית → ביטול בשרת, מחיקה מהמחשב, החלון נסגר, הכפתור נכבה, מסך הכניסה חוזר
         String token = Json.str(Account.userState().get("token"));
@@ -297,6 +326,35 @@ public class TeacherPanelIt {
     static Window waitDialogNow(String title) {
         for (Window x : Window.getWindows()) if (x.isShowing() && x instanceof java.awt.Dialog && title.equals(((java.awt.Dialog) x).getTitle())) return x;
         return null;
+    }
+
+    /** כמה רכיבים עם dsviz.id שמתחיל ב-prefix */
+    static int countIds(java.awt.Component c, String prefix) {
+        int n = c instanceof javax.swing.JComponent && String.valueOf(((javax.swing.JComponent) c).getClientProperty("dsviz.id")).startsWith(prefix) ? 1 : 0;
+        if (c instanceof java.awt.Container) for (java.awt.Component k : ((java.awt.Container) c).getComponents()) n += countIds(k, prefix);
+        return n;
+    }
+
+    static javax.swing.AbstractButton byId(java.awt.Component c, String id) {
+        if (c instanceof javax.swing.AbstractButton && id.equals(((javax.swing.JComponent) c).getClientProperty("dsviz.id"))) return (javax.swing.AbstractButton) c;
+        if (c instanceof java.awt.Container) for (java.awt.Component k : ((java.awt.Container) c).getComponents()) {
+            javax.swing.AbstractButton r = byId(k, id);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    /** לחיצה (בחוט של Swing, בלי לחכות לחלון השאלה שנפתח) */
+    static void clickId(Window w, String id) throws Exception {
+        final javax.swing.AbstractButton b = byId(w, id);
+        if (b == null) { check("כפתור " + id + " קיים", false); return; }
+        SwingUtilities.invokeLater(b::doClick);
+        Thread.sleep(300);
+    }
+
+    static void waitLabel(Window w, String id, String want) throws InterruptedException {
+        long end = System.currentTimeMillis() + 15000;
+        while (System.currentTimeMillis() < end && !label(w, id).equals(want)) Thread.sleep(150);
     }
 
     static String label(Window w, String id) {

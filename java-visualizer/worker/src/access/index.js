@@ -287,7 +287,7 @@ export async function resolveToken(env, token, machine, caps) {
  * (POST /v1/teacher/summary); grades — התלמיד רואה את הציון שהמורה נתן (POST /v1/student/work). התוסף מציג את הכפתור רק כשהשרת אמר
  * שהוא יודע — כך גרסה חדשה של התוסף מול שרת ישן (או שרת שבו ההגשה כבויה) לא מציגה כפתור שלא עובד
  */
-const FEATURES = ['submit', 'summary', 'grades'];
+const FEATURES = ['submit', 'summary', 'grades', 'panel'];
 
 async function accessReply(env, r, extra) {
   const s = await settings(env);

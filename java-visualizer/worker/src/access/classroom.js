@@ -589,8 +589,13 @@ async function deleteSubmission(request, env) {
 async function releaseStation(request, env) {
   const u = await teacherUser(request, env);
   const b = await readJson(request);
+  return doReleaseStation(env, u.email, clip(b.id, 64));
+}
+
+/** שחרור עמדה של המורה (מהדפדפן או מעמדת הניהול בתוכנה): ההיתר חוזר, עד teacherReleases בחודש; ההגשות של העמדה נמחקות */
+async function doReleaseStation(env, email, id) {
+  const u = { email };
   const store = db(env);
-  const id = clip(b.id, 64);
   const s = await settings(env);
   const out = await store.tx(async t => {
     const [st, teacher] = await t.getMany(['stations/' + id, 'teachers/' + u.email]);
@@ -749,6 +754,61 @@ async function teacherSettings(request, env) {
  * למורה, מהתוסף (הכרטיס של המחשב — לא Google): כמה הגשות חדשות מחכות לו. החלון "עמדת ניהול" בתוכנה מציג את המספר,
  * והמורה יודע מתי כדאי לפתוח את עמדת הניהול בדפדפן
  */
+/** המורה שמחובר במחשב (עמדת הניהול בתוכנה) — או שגיאה */
+async function pluginTeacher(request, env) {
+  const r = await pluginUser(request, env);
+  if (r.kind !== 'teacher') throw new Fail(403, 'teacher', 'הפעולה הזו למורה שמחובר במחשב.');
+  return r.profile.email;
+}
+
+/**
+ * עמדת הניהול בתוכנה: מחשבי המעבדה של המורה (הכינוי, מתי פעלו לאחרונה) והתלמידים שמשויכים אליו (עם הכיתה),
+ * וכמה שחרורי עמדות נשארו החודש
+ */
+const collatorHe = new Intl.Collator("he", { numeric: true });
+
+async function teacherPanel(request, env) {
+  const email = await pluginTeacher(request, env);
+  const store = db(env);
+  const [t, stations, members, classes, s] = await Promise.all([
+    store.get('teachers/' + email),
+    store.query('stations', { where: [['teacher', '==', email]] }),
+    store.query('members', { where: [['teacher', '==', email]] }),
+    store.query('classes', { where: [['teacher', '==', email]] }),
+    settings(env),
+  ]);
+  const cname = new Map(classes.map(c => [c._id, c.name || '']));
+  const used = t && t.releases && t.releases.month === month() ? t.releases.n || 0 : 0;
+  return {
+    ok: true,
+    releasesLeft: Math.max(0, s.teacherReleases - used),
+    stations: stations.filter(x => x.active).map(x => ({ id: x._id, name: x.name || '', lastSeen: x.lastSeen || '', claimedAt: x.claimedAt || '' }))
+      .sort((a, b) => collatorHe.compare(a.name, b.name)),
+    students: members.filter(m => !m.leftAt).map(m => ({ email: m.student, name: m.name || '', className: cname.get(m.classId) || '', lastSubmitAt: m.lastSubmitAt || '', joinedAt: m.joinedAt || '' }))
+      .sort((a, b) => collatorHe.compare(a.name || a.email, b.name || b.email)),
+  };
+}
+
+async function teacherReleaseStation(request, env) {
+  const email = await pluginTeacher(request, env);
+  const b = await readJson(request);
+  return doReleaseStation(env, email, clip(b.id, 64));
+}
+
+/** המורה מסיר תלמיד מהשיוך אליו (מהתוכנה): התלמיד נהיה עצמאי, וההגשות שלו נשארות אצל המורה עם "עזב" (כמו כשהתלמיד יוצא בעצמו) */
+async function teacherReleaseStudent(request, env) {
+  const email = await pluginTeacher(request, env);
+  const b = await readJson(request);
+  const student = String(b.email || '').trim().toLowerCase();
+  const store = db(env);
+  const m = await store.get('members/' + memberId(email, student));
+  if (!m || m.leftAt) throw new Fail(404, 'not_found', 'התלמיד לא נמצא ברשימה שלך.');
+  await leaveTeacher(store, student, email, 'teacher');
+  const st = await store.get('students/' + student);
+  if (st && st.teacher === email) await store.merge('students/' + student, { mode: '', teacher: '', modeAt: nowIso(), removedBy: email });
+  return { ok: true };
+}
+
 async function teacherSummary(request, env) {
   const r = await pluginUser(request, env);
   if (r.kind !== 'teacher') throw new Fail(403, 'teacher', 'הפעולה הזו למורה שמחובר במחשב.');
@@ -790,6 +850,9 @@ export const CLASSROOM_ROUTES = {
   'POST /v1/student/work': studentWork,
   'POST /v1/submit': submit,
   'POST /v1/teacher/summary': teacherSummary,
+  'POST /v1/teacher/panel': teacherPanel,
+  'POST /v1/teacher/station/release': teacherReleaseStation,
+  'POST /v1/teacher/student/release': teacherReleaseStudent,
   'GET /v1/me/console': consoleData,
   'GET /v1/me/submissions': listSubmissions,
   'GET /v1/me/submission': getSubmission,

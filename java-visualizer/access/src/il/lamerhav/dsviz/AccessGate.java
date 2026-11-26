@@ -887,6 +887,12 @@ public final class AccessGate {
         /** "3 הגשות חדשות מחכות לך" — מהשרת (Account.teacherSummary); מוסתר כשאין תשובה */
         private final JLabel fresh = text(" ", 14, true, BLUE);
         private final JButton copy = secondary("העתק קוד");
+        /** מחשבי המעבדה של המורה והתלמידים שמשויכים אליו — מהשרת (Account.teacherPanel); מוסתרים כשאין תשובה */
+        private final JLabel stationsTitle = text(" ", 15, true, INK), studentsTitle = text(" ", 15, true, INK);
+        private final JPanel stationsList = column(), studentsList = column();
+        private final JComponent stationsBox = listBox(stationsList), studentsBox = listBox(studentsList);
+        private final JLabel listsNote = text(" ", 13, false, MUTED);
+        private int releasesLeft = -1;
         private String codeText = "";
         /** לבדיקות: כמה פעמים הנתונים נטענו מחדש מהשרת */
         volatile int reloads;
@@ -930,8 +936,21 @@ public final class AccessGate {
             fresh.putClientProperty("dsviz.id", "fresh");
             fresh.setVisible(false);
             col.add(fresh);
-            col.add(Box.createVerticalStrut(2));
-            col.add(text("ההגשות, התלמידים, הכיתות והמחשבים — בעמדת הניהול בדפדפן.", 13, false, MUTED));
+            col.add(Box.createVerticalStrut(12));
+            stationsTitle.putClientProperty("dsviz.id", "stations-title");
+            studentsTitle.putClientProperty("dsviz.id", "students-title");
+            for (JComponent c : new JComponent[] { stationsTitle, stationsBox, studentsTitle, studentsBox, listsNote }) c.setVisible(false);
+            col.add(stationsTitle);
+            col.add(Box.createVerticalStrut(4));
+            col.add(stationsBox);
+            col.add(Box.createVerticalStrut(10));
+            col.add(studentsTitle);
+            col.add(Box.createVerticalStrut(4));
+            col.add(studentsBox);
+            col.add(Box.createVerticalStrut(4));
+            col.add(listsNote);
+            col.add(Box.createVerticalStrut(6));
+            col.add(text("ההגשות, הציונים והכיתות — בעמדת הניהול בדפדפן.", 13, false, MUTED));
             col.add(Box.createVerticalStrut(16));
             JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
             row.setOpaque(false);
@@ -1010,19 +1029,197 @@ public final class AccessGate {
         }
 
         /** בדיקה מול השרת ברקע: המקומות / הקוד העדכניים; מורה שהושבת — ההודעה, והכפתור בסרגל נכבה */
+        /** לבדיקות: הרשימות שמוצגות עכשיו */
+        volatile List<Object> shownStations, shownStudents;
+
+        /** מחשבי המעבדה (כינוי, מתי פעל לאחרונה, שחרור) והתלמידים המשויכים (כיתה, הסרה). בלי תשובה מהשרת — מוסתרים */
+        void showLists(Account.Result p) {
+            boolean ok = p != null && p.ok();
+            for (JComponent c : new JComponent[] { stationsTitle, stationsBox, studentsTitle, studentsBox, listsNote }) c.setVisible(ok);
+            if (!ok) {
+                if (isDisplayable()) pack();
+                return;
+            }
+            List<Object> st = Json.arr(p.body.get("stations")), su = Json.arr(p.body.get("students"));
+            shownStations = st;
+            shownStudents = su;
+            releasesLeft = num(p.body.get("releasesLeft"));
+            stationsTitle.setText(RLM + "מחשבי המעבדה שלך (" + st.size() + ")");
+            studentsTitle.setText(RLM + "תלמידים שמשויכים אליך (" + su.size() + ")");
+            stationsList.removeAll();
+            if (st.isEmpty()) stationsList.add(rowNote("עוד אין מחשבי מעבדה מחוברים. במחשב בכיתה מקלידים את הקוד שלך במסך \"עמדת מחשב\"."));
+            for (Object o : st) {
+                final Map<String, Object> m = Json.obj(o);
+                final String id = Json.str(m.get("id")), nm = Json.str(m.get("name"));
+                String seen = Json.str(m.get("lastSeen"));
+                long days = daysSince(seen);
+                String sub = (seen.isEmpty() ? "עוד לא פעל" : "פעל לאחרונה " + ago(seen)) + (days > 30 ? " — אולי הוחלף" : "");
+                JButton rel = secondary("שחרור");
+                rel.putClientProperty("dsviz.id", "release-station:" + id);
+                rel.addActionListener(e -> releaseStation(id, nm, rel));
+                stationsList.add(row(nm.isEmpty() ? "מחשב בלי שם" : nm, sub, days > 30 ? WARN : MUTED, rel, "station:" + id));
+            }
+            studentsList.removeAll();
+            if (su.isEmpty()) studentsList.add(rowNote("עוד אין תלמידים משויכים. תלמיד שנכנס עם Google מצטרף אליך עם הקוד שלך."));
+            for (Object o : su) {
+                final Map<String, Object> m = Json.obj(o);
+                final String em = Json.str(m.get("email")), nm = Json.str(m.get("name")), cls = Json.str(m.get("className")), last = Json.str(m.get("lastSubmitAt"));
+                String sub = (nm.isEmpty() ? "" : "\u200E" + em + "\u200E") + (cls.isEmpty() ? "" : (nm.isEmpty() ? "" : " · ") + cls)
+                        + (last.isEmpty() ? "" : " · הגיש " + ago(last));
+                if (sub.startsWith(" · ")) sub = sub.substring(3);
+                if (sub.isEmpty()) sub = "עוד לא הגיש";
+                JButton rem = secondary("הסרה");
+                rem.putClientProperty("dsviz.id", "release-student:" + em);
+                rem.addActionListener(e -> releaseStudent(em, nm.isEmpty() ? em : nm, rem));
+                studentsList.add(row(nm.isEmpty() ? em : nm, sub, MUTED, rem, "student:" + em));
+            }
+            listsNote.setText(RLM + (releasesLeft >= 0 ? "שחרורי מחשבים שנשארו החודש: " + releasesLeft + " · " : "") + "תלמיד שמוסר נהיה עצמאי, וההגשות שלו נשארות אצלך.");
+            stationsList.revalidate();
+            studentsList.revalidate();
+            if (isDisplayable()) pack();
+        }
+
+        private void releaseStation(String id, String nm, JButton b) {
+            if (!ask(this, "לשחרר את המחשב?", "\"" + (nm.isEmpty() ? "מחשב בלי שם" : nm) + "\" ינותק מהשיוך אליך, וההיתר חוזר אליך. כדי להתחבר שוב המחשב יצטרך את הקוד שלך."
+                    + (releasesLeft >= 0 ? " נשארו החודש " + releasesLeft + " שחרורים." : ""), "שחרור", "ביטול")) return;
+            act(b, () -> Account.teacherReleaseStation(id), "המחשב שוחרר");
+        }
+
+        private void releaseStudent(String em, String nm, JButton b) {
+            if (!ask(this, "להסיר את התלמיד?", nm + " לא יהיה משויך אליך יותר (יהיה תלמיד עצמאי). ההגשות שלו נשארות אצלך.", "הסרה", "ביטול")) return;
+            act(b, () -> Account.teacherReleaseStudent(em), "התלמיד הוסר");
+        }
+
+        /** פעולה מול השרת ברקע; אחריה — טעינה מחדש של הרשימות (או הודעת השגיאה מהשרת) */
+        private void act(final JButton b, final java.util.concurrent.Callable<Account.Result> call, final String done) {
+            b.setEnabled(false);
+            Thread t = new Thread(() -> {
+                Account.Result r;
+                try { r = call.call(); } catch (Exception e) { r = new Account.Result("error", e.getMessage(), null); }
+                final Account.Result res = r;
+                SwingUtilities.invokeLater(() -> {
+                    if (!isDisplayable()) return;
+                    if (res.ok()) {
+                        listsNote.setText(RLM + done);
+                        reload();
+                    } else {
+                        b.setEnabled(true);
+                        notice.setText(RLM + (res.message.isEmpty() ? "הפעולה לא הצליחה — בודקים את החיבור לאינטרנט ומנסים שוב." : res.message));
+                        notice.setVisible(true);
+                        pack();
+                    }
+                });
+            }, "dsviz-teacher-panel-action");
+            t.setDaemon(true);
+            t.start();
+        }
+
+        /** שורה ברשימה: כותרת ושורת פרטים מימין, כפתור משמאל */
+        private JPanel row(String title, String sub, Color subColor, JButton b, String id) {
+            JPanel r = new JPanel(new BorderLayout(10, 0));
+            r.setOpaque(true);
+            r.setBackground(Color.WHITE);
+            r.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0xEEF0F4)), BorderFactory.createEmptyBorder(6, 10, 6, 10)));
+            r.putClientProperty("dsviz.id", id);
+            JPanel txt = column();
+            txt.add(text(title, 14, true, INK));
+            txt.add(text(sub, 12, false, subColor));
+            r.add(txt, BorderLayout.CENTER);
+            b.setFont(new Font(Font.DIALOG, Font.PLAIN, 13));
+            b.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(FIELD, 1, true), BorderFactory.createEmptyBorder(5, 12, 5, 12)));
+            JPanel bw = new JPanel(new java.awt.GridBagLayout());
+            bw.setOpaque(false);
+            bw.add(b);
+            r.add(bw, BorderLayout.LINE_END);
+            r.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            r.setMaximumSize(new Dimension(Integer.MAX_VALUE, r.getPreferredSize().height));
+            r.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
+            return r;
+        }
+
+        private JComponent rowNote(String s) {
+            JLabel l = text(s, 13, false, MUTED);
+            l.setBorder(BorderFactory.createEmptyBorder(8, 10, 8, 10));
+            return l;
+        }
+
+        /** רשימה עם גלילה (עד כ-5 שורות גלויות), במסגרת */
+        private static JComponent listBox(JPanel list) {
+            list.setOpaque(true);
+            list.setBackground(Color.WHITE);
+            // השורות ברוחב הרשימה כולה (לא רק ברוחב הטקסט שלהן): המכל עוקב אחרי רוחב החלון הנגלל
+            class Track extends JPanel implements javax.swing.Scrollable {
+                private static final long serialVersionUID = 1L;
+
+                Track() { super(new BorderLayout()); setBackground(Color.WHITE); }
+
+                public Dimension getPreferredScrollableViewportSize() { return getPreferredSize(); }
+
+                public int getScrollableUnitIncrement(java.awt.Rectangle r, int o, int d) { return 16; }
+
+                public int getScrollableBlockIncrement(java.awt.Rectangle r, int o, int d) { return r.height; }
+
+                public boolean getScrollableTracksViewportWidth() { return true; }
+
+                public boolean getScrollableTracksViewportHeight() { return false; }
+            }
+            Track holder = new Track();
+            holder.add(list, BorderLayout.NORTH);
+            javax.swing.JScrollPane sp = new javax.swing.JScrollPane(holder, javax.swing.JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, javax.swing.JScrollPane.HORIZONTAL_SCROLLBAR_NEVER) {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                public Dimension getPreferredSize() {
+                    Dimension d = super.getPreferredSize();
+                    return new Dimension(Math.max(480, d.width), Math.min(d.height, 230));
+                }
+
+                @Override
+                public Dimension getMaximumSize() {
+                    return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+                }
+            };
+            sp.setBorder(BorderFactory.createLineBorder(FIELD, 1, true));
+            sp.getViewport().setBackground(Color.WHITE);   // גם מתחת לשורות / לצדן — לבן, כמו השורות
+            sp.getVerticalScrollBar().setUnitIncrement(16);
+            sp.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            return sp;
+        }
+
+        private static long daysSince(String iso) {
+            try { return (System.currentTimeMillis() - java.time.Instant.parse(iso).toEpochMilli()) / 86400000L; } catch (Exception e) { return 0; }
+        }
+
+        /** "לפני 5 דקות" / "לפני 3 שעות" / "אתמול" / "לפני 4 ימים" / "12.11.2026" */
+        static String ago(String iso) {
+            long t;
+            try { t = java.time.Instant.parse(iso).toEpochMilli(); } catch (Exception e) { return iso; }
+            long m = Math.max(0, (System.currentTimeMillis() - t) / 60000L);
+            if (m < 2) return "עכשיו";
+            if (m < 60) return "לפני " + m + " דקות";
+            long h = m / 60;
+            if (h < 24) return h == 1 ? "לפני שעה" : h == 2 ? "לפני שעתיים" : "לפני " + h + " שעות";
+            long d = h / 24;
+            if (d == 1) return "אתמול";
+            if (d < 30) return "לפני " + d + " ימים";
+            return Account.dmy(iso.substring(0, Math.min(10, iso.length())));
+        }
+
         void reload() {
             Thread t = new Thread(() -> {
                 Account.Result r;
                 try { r = Account.refresh(); } catch (Throwable e) { r = null; }
                 final boolean online = r != null && !"offline".equals(r.status) && !"error".equals(r.status);
-                Account.Result sum;
+                Account.Result sum, pan;
                 try { sum = online ? Account.teacherSummary() : null; } catch (Throwable e) { sum = null; }
-                final Account.Result summary = sum;
+                try { pan = online ? Account.teacherPanel() : null; } catch (Throwable e) { pan = null; }
+                final Account.Result summary = sum, panel = pan;
                 SwingUtilities.invokeLater(() -> {
                     if (!isDisplayable()) return;
                     Map<String, Object> info = Account.teacherInfo();
                     if (online || info == null) fill(info);
                     showFresh(info == null ? null : summary);
+                    showLists(info == null ? null : panel);
                     reloads++;
                     if (info == null) changed();
                 });
