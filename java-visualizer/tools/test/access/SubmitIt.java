@@ -307,7 +307,7 @@ public class SubmitIt {
                 && ui(() -> byId(AccessGate.myTeacher, "teacher-name")) != null, teacherText());
         shotTeacher("t2-my-teacher-joined");
         check("מגישים כתלמיד, למורה שרה כהן; הקישור במאגר הפך ל'המורה שלי'", "student".equals(Submit.mode()) && "שרה כהן".equals(Submit.teacher())
-                && "הגשה למורה שרה כהן".equals(Submit.label()) && "המורה שלי".equals(AccessGate.teacherLink()), Submit.mode() + " / " + Submit.teacher());
+                && "הגשה למורה שרה כהן".equals(Submit.label()) && "המורה שלי: שרה כהן".equals(AccessGate.teacherLink()), Submit.mode() + " / " + Submit.teacher());
         check("אצל המורה: התלמיד מופיע ברשימה (בלי כיתה)", AccountIt.api("GET", "/v1/me/console", teacherTok, null).contains(student), "");
         check("חלון השאלה התעדכן לבד: הכפתור 'הגשה למורה שרה כהן' (בלי לפתוח מחדש)", waitShown("SUBMIT-BUTTON הגשה למורה שרה כהן", 8000) && !has("SUBMIT-JOIN"), shown());
         // יציאה מהמורה וחזרה (עם אישור): הכפתור נעלם ומופיע
@@ -345,8 +345,10 @@ public class SubmitIt {
         Map<String, Object> ex0 = Json.obj(s0.get("exercise")), ck0 = Json.obj(s0.get("check"));
         check("אצל המורה: הגשה אחת של התלמיד, עם השאלה, הנושא, הרמה והתוכנה", subs.size() == 1 && "stack-sum-size".equals(ex0.get("bankId")) && q.title.equals(ex0.get("title"))
                 && "bank".equals(ex0.get("source")) && "מחסנית".equals(ex0.get("topic")) && q.level.title.equals(ex0.get("level")) && "IntelliJ".equals(s0.get("app")), s0);
-        check("אצל המורה: תוצאת בדיקת ההרצה — לא מתקמפל, עם השגיאה ומספר השורה; והפלט הרצוי של השאלה", Boolean.TRUE.equals(ck0.get("ran")) && Boolean.FALSE.equals(ck0.get("compiles"))
-                && Json.str(ck0.get("error")).contains("StackTargil1.java, שורה") && SolutionCheck.clean(q.expectedOutput()).equals(Json.str(ck0.get("expected"))), ck0);
+        check("אצל המורה: תוצאת בדיקת ההרצה — לא מתקמפל, עם השגיאה ומספר השורה; והפלט הרצוי של הסעיפים שהוכנו", Boolean.TRUE.equals(ck0.get("ran")) && Boolean.FALSE.equals(ck0.get("compiles"))
+                && Json.str(ck0.get("error")).contains("StackTargil1.java, שורה")
+                // הפלט הרצוי — רק של הסעיפים שהתלמיד הכין (BankSubmit.expectedFor), כלומר חלק מהפלט הרצוי המלא של השאלה
+                && !Json.str(ck0.get("expected")).isEmpty() && SolutionCheck.clean(q.expectedOutput()).contains(Json.str(ck0.get("expected"))), ck0);
         Map<String, Object> full = json(AccountIt.api("GET", "/v1/me/submission?id=" + Json.str(s0.get("id")), teacherTok, null));
         List<Object> files = Json.arr(full.get("files"));
         String sent = files.isEmpty() ? "" : Json.str(Json.obj(files.get(0)).get("text"));
