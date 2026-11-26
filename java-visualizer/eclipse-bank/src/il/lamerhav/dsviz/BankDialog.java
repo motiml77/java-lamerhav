@@ -282,7 +282,7 @@ public class BankDialog extends Dialog {
             sgd.horizontalIndent = 12;
             st.setLayoutData(sgd);
         }
-        Label c = Look.copyrightLabel(buttons);   // זכויות יוצרים והגרסה
+        Label c = Look.copyrightLabel(buttons, !station);   // זכויות יוצרים והגרסה (ומי מחובר — אם אין כבר את שורת העמדה)
         c.setLayoutData(new GridData(SWT.END, SWT.CENTER, true, false));
         updateButtons();
         return buttons;

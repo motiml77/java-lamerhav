@@ -27,7 +27,7 @@ FORCE=1 sh tools/build-access.sh > /dev/null
 ACC="$R/build/access/dsviz-access.jar"
 javac --release 8 -Xlint:-options -encoding UTF-8 -nowarn -d "$LIB" $(find src/unit4 -name '*.java' ! -name JdiTracer.java)
 (cd "$LIB" && unzip -qo "$ACC" -x 'META-INF/*')
-javac --release 8 -Xlint:-options -encoding UTF-8 -nowarn -cp "$LIB" -d "$LIB" $E/Scaffold.java $E/NameCheck.java $E/CsSolution.java \
+javac --release 8 -Xlint:-options -encoding UTF-8 -nowarn -cp "$LIB" -d "$LIB" $E/Scaffold.java $E/NameCheck.java $E/CsSolution.java $E/ClassGen.java $E/PolyPanels.java \
     $E/WorkerClient.java $E/ExerciseFiles.java $E/AiScaffold.java $E/SolutionCheck.java \
     $E/SolutionStore.java $E/ExercisePipeline.java $E/SubmitCli.java $(find csharp/new-exercise/src -name '*.java')
 javac -encoding UTF-8 -nowarn -cp "$LIB" -d "$CLS" tools/test/access/*.java

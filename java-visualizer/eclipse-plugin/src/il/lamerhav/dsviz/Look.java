@@ -71,14 +71,34 @@ final class Look {
 
     /** שורת זכויות היוצרים בתחתית החלונות, עם הגרסה: "© 2026 Moti Levi · motiml77@gmail.com · גרסה 1.0.3" */
     static String copyright() {
+        return copyright(true);
+    }
+
+    /** withComputer = false — בלי שם העמדה / מי מחובר (בחלון שכבר מציג אותם בשורה משלו, כמו המאגר בעמדת מחשב) */
+    static String copyright(boolean withComputer) {
         String v = version();
-        return v.isEmpty() ? COPYRIGHT : COPYRIGHT + "  ·  גרסה " + v;
+        String s = v.isEmpty() ? COPYRIGHT : COPYRIGHT + "  ·  גרסה " + v;
+        String who = withComputer ? computer() : "";
+        return who.isEmpty() ? s : s + "  ·  " + who;
+    }
+
+    /** שם העמדה ומי מחובר (Account.computerLine) — ליד מספר הגרסה; "" כשאין (הכניסה כבויה, או הספרייה של הכניסה חסרה) */
+    static String computer() {
+        try {
+            return AccessGate.computerLine();
+        } catch (Throwable e) {
+            return "";
+        }
     }
 
     /** תווית זכויות היוצרים + הגרסה (הרמז: מספר הבנייה) */
     static Label copyrightLabel(Composite parent) {
+        return copyrightLabel(parent, true);
+    }
+
+    static Label copyrightLabel(Composite parent, boolean withComputer) {
         Label c = new Label(parent, SWT.LEFT_TO_RIGHT);
-        c.setText(copyright());
+        c.setText(copyright(withComputer));
         if (!build().isEmpty()) c.setToolTipText("בנייה " + build());
         c.setFont(font(parent.getDisplay(), -2, SWT.NORMAL));
         c.setForeground(color(parent.getDisplay(), 0xA0A8B8));

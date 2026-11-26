@@ -1094,6 +1094,49 @@ public final class Account {
     }
 
     /**
+     * שורה קצרה ליד מספר הגרסה בתחתית החלונות: השם שנבחר למחשב (עמדת מחשב: השם שהמורה / המחבר נתנו לה, והמורה שלה)
+     * ומי מחובר עם Google (מורה / תלמיד) — כך רואים מיד איך המחשב מחובר (למשל למה "עמדת ניהול" אפורה: לא מחובר כמורה).
+     * "לא מחובר" — אין כניסה תקפה במחשב. נשמר לכמה שניות (החלונות בונים את השורה הרבה פעמים).
+     */
+    public static String computerLine() {
+        long now = System.currentTimeMillis();
+        if (now - lineAt < 3000 && lineCache != null) return lineCache;
+        String out;
+        try {
+            Map<String, Object> st = load(stationFile());
+            Map<String, Object> sp = st == null ? null : verifyPass(Json.str(st.get("pass")));
+            Map<String, Object> u = load(userFile());
+            Map<String, Object> up = u == null ? null : verifyPass(Json.str(u.get("pass")));
+            StringBuilder b = new StringBuilder();
+            if (sp != null) {
+                Access a = accessOf(sp);
+                b.append("עמדה: ").append(a.name.isEmpty() ? "בלי שם" : a.name);
+                if (!a.teacher.isEmpty() && up == null) b.append(" (המורה: ").append(a.teacher).append(')');
+            }
+            if (up != null) {
+                Access a = accessOf(up);
+                String who = a.name.isEmpty() ? a.email : a.name;
+                if (b.length() > 0) b.append(" · ");
+                b.append(a.isTeacher() ? "מחובר כמורה: " : a.isStudent() ? "מחובר כתלמיד/ה: " : "מחובר: ").append(who);
+            }
+            out = b.length() > 0 ? b.toString() : "לא מחובר";
+        } catch (Throwable e) {
+            out = "";
+        }
+        lineCache = out;
+        lineAt = now;
+        return out;
+    }
+
+    private static volatile String lineCache;
+    private static volatile long lineAt;
+
+    /** אחרי כניסה / התנתקות / שינוי שם העמדה — השורה מחושבת מחדש בפעם הבאה */
+    static void lineChanged() {
+        lineAt = 0;
+    }
+
+    /**
      * עמדת מחשב בכיתה עובדת רק על תרגילים ממאגר השאלות: שליחת תרגיל חדש לבדיקה ב-AI (וההצעה לפתרון שלו) פתוחה רק למורים
      * ולתלמידים שמחוברים עם Google. השרת אוכף את זה (geminiGate); כאן — כדי לומר את זה מיד, לפני שממלאים את החלון.
      */
