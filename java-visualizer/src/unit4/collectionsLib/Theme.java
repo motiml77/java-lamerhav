@@ -152,8 +152,13 @@ public final class Theme {
     public static void install() {
         if (installed) return;
         installed = true;
-        String regular = register("Alef-Regular.ttf");
-        register("Alef-Bold.ttf");   // אותה משפחה, משקל מודגש
+        // Heebo (OFL, Google Fonts): עברית נקייה וספרות ברורות. אם הוא לא נטען — Alef כמו קודם
+        String regular = register("Heebo-Regular.ttf");
+        if (regular != null) register("Heebo-Bold.ttf");   // אותה משפחה, משקל מודגש
+        else {
+            regular = register("Alef-Regular.ttf");
+            register("Alef-Bold.ttf");
+        }
         if (regular != null) family = regular;
         boldFamily = family;
         boldStyle = Font.BOLD;
@@ -256,7 +261,16 @@ public final class Theme {
         return StyleContext.getDefaultStyleContext().getFont(family, style, size);
     }
 
+    /** גופן הקוד שבתוך הספרייה: Chivo Mono (OFL, Google Fonts) — אפס נקי בלי נקודה / קו, שלא נראה כמו 8 בגודל קטן */
+    private static String codeFamily;
+    private static boolean codeTried;
+
     private static Font monoFont(int size) {
+        if (!codeTried) {
+            codeTried = true;
+            codeFamily = register("ChivoMono-Medium.ttf");
+        }
+        if (codeFamily != null) return font(codeFamily, Font.PLAIN, size);
         Set<String> have = new HashSet<String>(Arrays.asList(
                 GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()));
         for (String n : new String[] { "Cascadia Mono", "Cascadia Code", "Consolas", "JetBrains Mono", "SF Mono",
