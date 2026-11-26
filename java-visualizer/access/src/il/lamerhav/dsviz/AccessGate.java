@@ -766,14 +766,22 @@ public final class AccessGate {
         });
     }
 
-    static final class TeacherPanel extends JDialog {
+    static final class TeacherPanel extends JDialog implements Roster.Actions {
         private static final long serialVersionUID = 1L;
+        private static final int NOTE_W = 470;   // ב-HTML של Swing: בערך 610 פיקסלים במסך
         private final JLabel name = text("", 16, true, INK), email = text("", 13, false, MUTED);
         private final JLabel notice = text("", 14, true, WARN);
         private final JLabel big = new JLabel("—", SwingConstants.CENTER);
-        private final JLabel note = wrap("", 13, MUTED, 400);
+        private final JLabel note = wrap("", 12, MUTED, NOTE_W);
         private final JLabel seats = text("", 14, false, INK);
+        /** "3 הגשות חדשות מחכות לך" — מהשרת (Account.teacherSummary); מוסתר כשאין תשובה */
+        private final JLabel fresh = text(" ", 14, true, BLUE);
         private final JButton copy = secondary("העתק קוד");
+        /** מחשבי המעבדה של המורה והתלמידים שמשויכים אליו — מהשרת (Account.teacherPanel); בנוי להרבה שורות (Roster) */
+        final Roster roster = new Roster(this, Account.CLASSROOM);
+        /** החלון נמדד (fitWindow) כשהרשימות מוצגות / מוסתרות */
+        private boolean sizedWithRoster;
+        private int releasesLeft = -1;
         private String codeText = "";
         /** לבדיקות: כמה פעמים הנתונים נטענו מחדש מהשרת */
         volatile int reloads;
@@ -782,67 +790,125 @@ public final class AccessGate {
             super(parent == null ? null : SwingUtilities.getWindowAncestor(parent) != null ? SwingUtilities.getWindowAncestor(parent)
                     : parent instanceof Window ? (Window) parent : null, "עמדת ניהול", ModalityType.MODELESS);
             setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-            JPanel root = new JPanel(new BorderLayout());
+            JPanel root = new JPanel(new BorderLayout(0, 12));
             root.setBackground(PAGE);
-            JPanel col = column();
-            col.setBorder(BorderFactory.createEmptyBorder(22, 28, 22, 28));
-            col.add(text("עמדת ניהול של המורה", 22, true, INK));
-            col.add(Box.createVerticalStrut(8));
-            col.add(name);
-            col.add(Box.createVerticalStrut(2));
-            col.add(email);
-            notice.setOpaque(true);
-            notice.setBackground(WARN_SOFT);
-            notice.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
-            notice.setVisible(false);
-            col.add(Box.createVerticalStrut(8));
-            col.add(notice);
-            col.add(Box.createVerticalStrut(10));
-            col.add(text("הקוד שלך לחיבור עמדות מחשב", 14, true, INK));
-            col.add(Box.createVerticalStrut(6));
-            big.setFont(new Font(Font.MONOSPACED, Font.BOLD, 40));
+            root.setBorder(BorderFactory.createEmptyBorder(18, 24, 18, 24));
+
+            // למעלה (גובה קבוע): מי מחובר + העמדות וההגשות החדשות, ולצדם הקוד — כך רוב החלון נשאר לרשימות
+            JPanel top = column();
+            top.add(text("עמדת ניהול של המורה", 20, true, INK));
+            top.add(Box.createVerticalStrut(10));
+            JPanel card = new Rounded(CARD, LINE, 16);
+            card.setLayout(new BorderLayout(18, 0));
+            card.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
+            card.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            JPanel who = column();
+            who.add(name);
+            who.add(Box.createVerticalStrut(2));
+            who.add(email);
+            who.add(Box.createVerticalStrut(10));
+            seats.putClientProperty("dsviz.id", "seats");
+            who.add(seats);
+            who.add(Box.createVerticalStrut(3));
+            fresh.putClientProperty("dsviz.id", "fresh");
+            fresh.setVisible(false);
+            who.add(fresh);
+            card.add(who, BorderLayout.CENTER);
+            JPanel codeBox = column();
+            codeBox.add(text(Account.CLASSROOM ? "הקוד שלך — לתלמידים ולמחשבי המעבדה" : "הקוד שלך לחיבור מחשבי המעבדה", 12, true, MUTED));
+            codeBox.add(Box.createVerticalStrut(6));
+            big.setFont(new Font(Font.MONOSPACED, Font.BOLD, 30));
             big.setForeground(BLUE);
             big.setOpaque(true);
             big.setBackground(BLUE_SOFT);
-            big.setBorder(BorderFactory.createEmptyBorder(10, 24, 10, 24));
-            big.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            big.setBorder(BorderFactory.createEmptyBorder(6, 18, 6, 18));
             big.putClientProperty("dsviz.id", "code");
-            col.add(big);
-            col.add(Box.createVerticalStrut(6));
-            col.add(note);
-            col.add(Box.createVerticalStrut(12));
-            seats.putClientProperty("dsviz.id", "seats");
-            col.add(seats);
-            col.add(Box.createVerticalStrut(2));
-            col.add(text("רשימת המחשבים, שחרור מחשב וקניית עמדות — בעמדת הניהול בדפדפן.", 13, false, MUTED));
-            col.add(Box.createVerticalStrut(16));
-            JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-            row.setOpaque(false);
-            row.setAlignmentX(Component.RIGHT_ALIGNMENT);
-            JButton open = primary("פתח עמדת ניהול בדפדפן");
-            open.addActionListener(e -> Account.openManagement());
+            copy.setFont(new Font(Font.DIALOG, Font.PLAIN, 13));
+            copy.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(FIELD, 1, true), BorderFactory.createEmptyBorder(6, 12, 6, 12)));
             copy.addActionListener(e -> {
                 if (codeText.isEmpty()) return;
                 java.awt.Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(codeText), null);
                 copy.setText(RLM + "הועתק");
             });
+            JPanel codeRow = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 0));
+            codeRow.setOpaque(false);
+            codeRow.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            codeRow.add(big);
+            codeRow.add(Box.createHorizontalStrut(10));
+            codeRow.add(copy);
+            codeBox.add(codeRow);
+            card.add(codeBox, BorderLayout.LINE_END);
+            top.add(card);
+            top.add(Box.createVerticalStrut(6));
+            top.add(note);
+            notice.setOpaque(true);
+            notice.setBackground(WARN_SOFT);
+            notice.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            notice.setVisible(false);
+            top.add(Box.createVerticalStrut(6));
+            top.add(notice);
+            root.add(top, BorderLayout.NORTH);
+
+            // באמצע (גדל עם החלון): מחשבי המעבדה / התלמידים
+            root.add(roster, BorderLayout.CENTER);
+
+            JPanel bottom = column();
+            bottom.add(text(Account.CLASSROOM ? "ההגשות, הציונים והכיתות — בעמדת הניהול בדפדפן." : "קניית עמדות ושאר הפעולות — בעמדת הניהול בדפדפן.", 13, false, MUTED));
+            bottom.add(Box.createVerticalStrut(10));
+            JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+            row.setOpaque(false);
+            row.setAlignmentX(Component.RIGHT_ALIGNMENT);
+            JButton open = primary("פתח עמדת ניהול בדפדפן");
+            open.addActionListener(e -> Account.openManagement());
             JButton out = secondary("התנתקות");
             out.addActionListener(e -> signOut(this, null));
             JButton close = secondary("סגירה");
             close.addActionListener(e -> dispose());
             row.add(open);
-            row.add(copy);
             row.add(out);
             row.add(close);
-            col.add(row);
-            root.add(col, BorderLayout.CENTER);
+            bottom.add(row);
+            root.add(bottom, BorderLayout.SOUTH);
             root.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
             setContentPane(root);
-            fill(Account.teacherInfo());
-            pack();
-            setMinimumSize(new Dimension(560, 0));
+            Map<String, Object> info = Account.teacherInfo();
+            fill(info);
+            // הרשימות — רק למורה מחובר, ורק כשהשרת יודע להחזיר אותן ("panel"; נשמר מהבדיקה האחרונה, ומתעדכן ב-reload)
+            roster.setVisible(info != null && Account.serverHas(false, "panel"));
+            fitWindow();
             setLocationRelativeTo(parent);
             reload();
+        }
+
+        /**
+         * הגודל של החלון: לפי התוכן; עם הרשימות — במסך נמוך (מחשב נייד) לא גבוה מהמסך (הרשימה מתקצרת ונגללת, השאר נשאר),
+         * ובמסך גבוה עוד כמה שורות ברשימה מההתחלה. המשתמש יכול להגדיל את החלון — הרשימה גדלה איתו.
+         */
+        private void fitWindow() {
+            setMinimumSize(new Dimension(0, 0));
+            pack();
+            java.awt.Rectangle scr = java.awt.GraphicsEnvironment.isHeadless() ? null : java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+            if (scr != null && roster.isVisible()) {
+                int h = getHeight();
+                h = h > scr.height - 16 ? Math.max(420, scr.height - 16) : Math.max(h, Math.min(scr.height - 120, h + 4 * Roster.ROW));
+                setSize(getWidth(), h);
+                if (isShowing() && getY() + h > scr.y + scr.height) setLocation(getX(), Math.max(scr.y, scr.y + scr.height - h));
+            }
+            setMinimumSize(new Dimension(Math.min(640, getWidth()), roster.isVisible() ? Math.min(460, getHeight()) : 0));
+            sizedWithRoster = roster.isVisible();
+        }
+
+        /** אחרי שינוי בטקסטים: החלון נשאר בגודל שהמשתמש בחר; רק אם הרשימה נדחקה (הודעה חדשה למעלה) — מוסיפים לו גובה */
+        private void refit() {
+            if (!isDisplayable()) return;
+            if (!roster.isVisible() || !sizedWithRoster) {
+                fitWindow();
+                return;
+            }
+            validate();
+            int need = Roster.HEAD + 4 * Roster.ROW + 80 - roster.getHeight();
+            if (need > 0) setSize(getWidth(), getHeight() + need);
+            repaint();
         }
 
         /** מציג את מה ששמור במחשב (מהבדיקה האחרונה מול השרת). null — כבר לא מורה מחובר */
@@ -866,23 +932,111 @@ public final class AccessGate {
                 int s = ((Number) t.get("seats")).intValue(), u = ((Number) t.get("used")).intValue();
                 seats.setText(RLM + (s < 0 ? "עמדות מחשב: מתעדכן…" : "עמדות מחשב בשימוש: " + Math.max(0, u) + " מתוך " + s));
                 note.setText(wrapHtml(codeText.isEmpty() ? "הקוד עוד לא נטען. נכנסים לעמדת הניהול בדפדפן (הכפתור למטה) — שם הוא מוצג תמיד."
-                        : "מקלידים אותו בכל מחשב במעבדה, במסך \"עמדת מחשב\". הקוד קבוע — אפשר לחזור לכאן בכל פעם.", 400));
+                        : Account.CLASSROOM ? "תלמיד שנכנס עם Google מצטרף אליך עם הקוד הזה, ובמעבדה מקלידים אותו במסך \"עמדת מחשב\". הקוד קבוע."
+                        : "מקלידים אותו בכל מחשב במעבדה, במסך \"עמדת מחשב\". הקוד קבוע — אפשר לחזור לכאן בכל פעם.", NOTE_W));
                 notice.setVisible(false);
                 copy.setEnabled(!codeText.isEmpty());
             }
-            if (isDisplayable()) pack();
+            refit();
         }
 
-        /** בדיקה מול השרת ברקע: המקומות / הקוד העדכניים; מורה שהושבת — ההודעה, והכפתור בסרגל נכבה */
+        /** כמה הגשות חדשות מחכות למורה (מתלמידים וממחשבי המעבדה), או שאין. בלי תשובה מהשרת — השורה מוסתרת */
+        void showFresh(Account.Result s) {
+            if (s == null || !s.ok()) {
+                fresh.setVisible(false);
+            } else {
+                int a = num(s.body.get("newStudents")), b = num(s.body.get("newStations")), kids = num(s.body.get("students"));
+                String text = a + b == 0 ? "אין הגשות חדשות" + (kids > 0 ? " · " + (kids == 1 ? "תלמיד אחד" : kids + " תלמידים") : "")
+                        : (a + b == 1 ? "הגשה חדשה אחת מחכה לך" : (a + b) + " הגשות חדשות מחכות לך") + " (" + a + " מתלמידים · " + b + " ממחשבי המעבדה)";
+                fresh.setText(RLM + text);
+                fresh.setForeground(a + b == 0 ? MUTED : BLUE);
+                fresh.setVisible(true);
+            }
+            refit();
+        }
+
+        private static int num(Object o) {
+            return o instanceof Number ? ((Number) o).intValue() : 0;
+        }
+
+        /** לבדיקות: הרשימות שמוצגות עכשיו */
+        volatile List<Object> shownStations, shownStudents;
+
+        /**
+         * מחשבי המעבדה (כינוי, מתי פעל לאחרונה, שחרור) והתלמידים המשויכים (כיתה, הגשה אחרונה, הסרה) — ברכיב Roster.
+         * teacher=false — כבר לא מורה מחובר: בלי רשימות; וכך גם כשהשרת לא יודע להחזיר אותן (status "none").
+         * בלי תשובה מהשרת (אין חיבור) — הודעה במקום הרשימה.
+         */
+        void showLists(Account.Result p, boolean teacher) {
+            boolean show = teacher && (p != null ? !"none".equals(p.status) : Account.serverHas(false, "panel"));
+            roster.setVisible(show);
+            if (!show) {
+                refit();
+                return;
+            }
+            if (p == null || !p.ok()) {
+                shownStations = shownStudents = null;
+                roster.message("הרשימות של מחשבי המעבדה והתלמידים לא נטענו (אין חיבור לשרת כרגע). הן יוצגו כשהחיבור יחזור — פותחים את החלון שוב.");
+            } else {
+                shownStations = Json.arr(p.body.get("stations"));
+                shownStudents = Json.arr(p.body.get("students"));
+                releasesLeft = num(p.body.get("releasesLeft"));
+                roster.show(shownStations, shownStudents, releasesLeft);
+            }
+            refit();
+        }
+
+        public void releaseStation(String id, String nm, JButton b) {
+            if (!ask(this, "לשחרר את המחשב?", "\"" + (nm.isEmpty() ? "מחשב בלי שם" : nm) + "\" ינותק מהשיוך אליך, וההיתר חוזר אליך. כדי להתחבר שוב המחשב יצטרך את הקוד שלך."
+                    + (releasesLeft >= 0 ? " נשארו החודש " + releasesLeft + " שחרורים." : ""), "שחרור", "ביטול")) return;
+            act(b, () -> Account.teacherReleaseStation(id), "המחשב שוחרר");
+        }
+
+        public void releaseStudent(String em, String nm, JButton b) {
+            if (!ask(this, "להסיר את התלמיד?", nm + " לא יהיה משויך אליך יותר (יהיה תלמיד עצמאי). ההגשות שלו נשארות אצלך.", "הסרה", "ביטול")) return;
+            act(b, () -> Account.teacherReleaseStudent(em), "התלמיד הוסר");
+        }
+
+        /** פעולה מול השרת ברקע; אחריה — טעינה מחדש של הרשימות (או הודעת השגיאה מהשרת) */
+        private void act(final JButton b, final java.util.concurrent.Callable<Account.Result> call, final String done) {
+            b.setEnabled(false);
+            Thread t = new Thread(() -> {
+                Account.Result r;
+                try { r = call.call(); } catch (Exception e) { r = new Account.Result("error", e.getMessage(), null); }
+                final Account.Result res = r;
+                SwingUtilities.invokeLater(() -> {
+                    if (!isDisplayable()) return;
+                    if (res.ok()) {
+                        roster.flash(done);
+                        reload();
+                    } else {
+                        b.setEnabled(true);
+                        notice.setText(RLM + (res.message.isEmpty() ? "הפעולה לא הצליחה — בודקים את החיבור לאינטרנט ומנסים שוב." : res.message));
+                        notice.setVisible(true);
+                        refit();
+                    }
+                });
+            }, "dsviz-teacher-panel-action");
+            t.setDaemon(true);
+            t.start();
+        }
+
+        /** בדיקה מול השרת ברקע: המקומות / הקוד העדכניים והרשימות; מורה שהושבת — ההודעה, והכפתור בסרגל נכבה */
         void reload() {
             Thread t = new Thread(() -> {
                 Account.Result r;
                 try { r = Account.refresh(); } catch (Throwable e) { r = null; }
                 final boolean online = r != null && !"offline".equals(r.status) && !"error".equals(r.status);
+                Account.Result sum, pan;
+                try { sum = online && Account.CLASSROOM ? Account.teacherSummary() : null; } catch (Throwable e) { sum = null; }
+                try { pan = online ? Account.teacherPanel() : null; } catch (Throwable e) { pan = null; }
+                final Account.Result summary = sum, panel = pan;
                 SwingUtilities.invokeLater(() -> {
                     if (!isDisplayable()) return;
                     Map<String, Object> info = Account.teacherInfo();
                     if (online || info == null) fill(info);
+                    showFresh(info == null ? null : summary);
+                    showLists(panel, info != null);
                     reloads++;
                     if (info == null) changed();
                 });

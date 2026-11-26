@@ -87,6 +87,12 @@ public final class Account {
         }
     }
 
+    /**
+     * זו הגרסה עם מרכז הבקרה (תלמידים מצטרפים למורה, הגשות וציונים)? בגרסה הרגילה — לא: עמדת הניהול בתוכנה מציגה את הקוד
+     * ואת מחשבי המעבדה של המורה, בלי התלמידים וההגשות
+     */
+    static final boolean CLASSROOM = false;
+
     /** תוצאה של פעולה מול השרת. status: ok / pay / not-teacher / blocked / devices / full / bad-code / revoked / invalid / offline / error / cancelled */
     public static final class Result {
         public final String status, message;
@@ -1178,9 +1184,37 @@ public final class Account {
         return h;
     }
 
+    /** השרת אמר (בבדיקה האחרונה של הכרטיס הזה) שהוא יודע feature — station=true: הכרטיס של העמדה; false: של המשתמש */
+    static boolean serverHas(boolean station, String feature) {
+        Map<String, Object> d = load(station ? stationFile() : userFile());
+        if (d == null) return false;
+        for (Object o : Json.arr(d.get("features"))) if (feature.equals(Json.str(o))) return true;
+        return false;
+    }
+
+    /**
+     * הכותרות של כרטיס מסוים: station=true — של העמדה של המחשב; false — של המשתמש המחובר עם Google (מורה / תלמיד).
+     * ריק — אין כרטיס כזה. (לפעולות של המורה המחובר מתוך עמדת הניהול בתוכנה)
+     */
+    static Map<String, String> headersOf(boolean station) {
+        Map<String, String> h = new LinkedHashMap<String, String>();
+        Map<String, Object> d = load(station ? stationFile() : userFile());
+        String tok = d == null ? "" : Json.str(d.get("token"));
+        if (!tok.isEmpty()) {
+            h.put("X-DSViz-Access", tok);
+            h.put("X-DSViz-Machine", machine());
+        }
+        return h;
+    }
+
     // ------------------------------------------------------------------ מול השרת
 
     static Result post(String path, Map<String, Object> body) {
+        return post(path, body, null);
+    }
+
+    /** כמו post, עם כותרות נוספות — הכרטיס של מי ששולח (headersOf), לפעולות של המשתמש המחובר */
+    static Result post(String path, Map<String, Object> body, Map<String, String> extra) {
         String base = serverUrl();
         if (base.isEmpty()) return new Result("error", "כתובת השרת לא מוגדרת.", null);
         HttpURLConnection c = null;
@@ -1194,6 +1228,7 @@ public final class Account {
             c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             c.setRequestProperty("Accept", "application/json");
             c.setRequestProperty("User-Agent", client.get());
+            if (extra != null) for (Map.Entry<String, String> h : extra.entrySet()) c.setRequestProperty(h.getKey(), h.getValue());
             byte[] out = Json.write(body).getBytes(StandardCharsets.UTF_8);
             try (OutputStream o = c.getOutputStream()) { o.write(out); }
             int code = c.getResponseCode();
@@ -1281,8 +1316,44 @@ public final class Account {
             d.put("teacherUsed", t.get("used"));
             d.put("teacherName", Json.str(t.get("name")));   // השם שההנהלה הגדירה (בחשבון Google לפעמים אין שם)
         }
+        // מה השרת יודע (features — למשל panel: הרשימות בעמדת הניהול בתוכנה). שרת ישן לא שולח — רשימה ריקה, והחלון נשאר כמו קודם
+        List<Object> feats = new ArrayList<Object>();
+        for (Object o : Json.arr(r.body.get("features"))) if (!Json.str(o).isEmpty()) feats.add(Json.str(o));
+        d.put("features", feats);
         save(f, d);
         syncTeacherFlag();
+    }
+
+    /**
+     * למורה שמחובר במחשב (בגרסה עם מרכז הבקרה): כמה הגשות חדשות מחכות לו (body: students, newStudents, newStations).
+     * רק כשהשרת יודע ("summary"); אחרת / בלי אינטרנט — status שאינו ok, והחלון פשוט לא מציג את השורה
+     */
+    public static Result teacherSummary() {
+        if (teacherInfo() == null || !serverHas(false, "summary")) return new Result("none", "", null);
+        return post("/v1/teacher/summary", new LinkedHashMap<String, Object>(), headersOf(false));
+    }
+
+    /**
+     * למורה שמחובר במחשב — לעמדת הניהול בתוכנה: מחשבי המעבדה שלו (body.stations: id, name, lastSeen, claimedAt), התלמידים
+     * שמשויכים אליו (body.students: email, name, className, lastSubmitAt) ו-releasesLeft. רק כשהשרת יודע ("panel")
+     */
+    public static Result teacherPanel() {
+        if (teacherInfo() == null || !serverHas(false, "panel")) return new Result("none", "", null);
+        return post("/v1/teacher/panel", new LinkedHashMap<String, Object>(), headersOf(false));
+    }
+
+    /** המורה משחרר מחשב מעבדה (ההיתר חוזר אליו; המחשב יצטרך את קוד המורה כדי להתחבר שוב) */
+    public static Result teacherReleaseStation(String id) {
+        Map<String, Object> b = new LinkedHashMap<String, Object>();
+        b.put("id", id);
+        return post("/v1/teacher/station/release", b, headersOf(false));
+    }
+
+    /** המורה מסיר תלמיד מהשיוך (התלמיד נהיה עצמאי; ההגשות נשארות אצל המורה) */
+    public static Result teacherReleaseStudent(String email) {
+        Map<String, Object> b = new LinkedHashMap<String, Object>();
+        b.put("email", email);
+        return post("/v1/teacher/student/release", b, headersOf(false));
     }
 
     /** הקוד של המורה המחובר (כמו שנשמר בכניסה / בבדיקה האחרונה מול השרת), או "" */
