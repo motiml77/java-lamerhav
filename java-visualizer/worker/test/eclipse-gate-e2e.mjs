@@ -95,7 +95,7 @@ try {
   page.on('pageerror', e => errors.push(String(e)));
 
   await step('Eclipse: הכפתור "מאגר תרגילים" פתח את מסך הכניסה, ו"כניסה עם Google" של המורה פתחה (בקובץ) כתובת כניסה', async () => {
-    const url = await waitFor('url-1.txt (Eclipse עולה, ההרחבה נבנית, החלון נפתח)', () => fileText('url-1.txt'), 15 * 60 * 1000);
+    const url = await waitFor('url-1.txt (Eclipse עולה, ההרחבה נבנית, החלון נפתח)', () => fileText('url-1.txt'), (Number(process.env.GATE_WAIT_MIN) || 45) * 60 * 1000);   // בניית ההרחבה כוללת את בדיקת כל המאגר (Java ו-C#) — במחשב עמוס יותר מרבע שעה
     assert.match(url, /\/signin\?/);
     assert.match(url, /role=teacher/);
     await page.goto(url);
