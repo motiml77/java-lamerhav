@@ -85,11 +85,12 @@ public class TeacherPanelIt {
         check("החלון: 'הגשה חדשה אחת מחכה לך' (" + label(p, "fresh") + ")", label(p, "fresh").equals("הגשה חדשה אחת מחכה לך (0 מתלמידים · 1 ממחשבי המעבדה)"));
         GateUi.shot(p, "panel-1b-new-submission");
         // מחשבי המעבדה בחלון: שני המחשבים, עם הכינוי ומתי פעלו לאחרונה, וכפתור שחרור לכל אחד
-        check("החלון: 'מחשבי המעבדה שלך (2)' (" + label(p, "stations-title") + ")", label(p, "stations-title").equals("מחשבי המעבדה שלך (2)"));
+        check("החלון: הלשונית 'מחשבי המעבדה (2)' (" + tab(p, "tab-stations") + ")", tab(p, "tab-stations").equals("מחשבי המעבדה (2)"));
         String stText = GateUi.visibleText(p);
         check("החלון: הכינויים של המחשבים ומתי פעלו", stText.contains("מעבדה 2 · עמדה 2") && stText.contains("פעל לאחרונה"));
         check("החלון: כפתור 'שחרור' לכל מחשב", countIds(p, "release-station:") == 2);
-        check("החלון: 'תלמידים שמשויכים אליך (0)' — עוד אין", label(p, "students-title").equals("תלמידים שמשויכים אליך (0)"));
+        check("החלון: הלשונית 'תלמידים (0)' — עוד אין", tab(p, "tab-students").equals("תלמידים (0)"));
+        check("החלון: נפתח על מחשבי המעבדה (יש מחשבים), עם כותרת עמודות", !((AccessGate.TeacherPanel) p).roster.onStudents() && stText.contains("כינוי המחשב"));
         Map<String, Object> me = me(t1);
         check("/account (‏/v1/me): אותו קוד, 2 מתוך 3, שני המחשבים", code1.equals(Json.str(me.get("code"))) && num(me, "used") == 2 && num(me, "seats") == 3
                 && Json.arr(me.get("stations")).size() == 2);
@@ -109,24 +110,29 @@ public class TeacherPanelIt {
         String kid = "panel.kid" + System.nanoTime() + "@test.dev";
         AccountIt.api("POST", "/v1/admin/student/assign", admin, "{\"email\":\"" + kid + "\",\"teacher\":\"" + t1 + "\"}");
         p = openPanel();
-        check("החלון: התלמיד המשויך ברשימה (" + label(p, "students-title") + ")", label(p, "students-title").equals("תלמידים שמשויכים אליך (1)") && GateUi.visibleText(p).contains(kid));
+        clickId(p, "tab-students");
+        check("החלון: התלמיד המשויך ברשימה (" + tab(p, "tab-students") + ")", tab(p, "tab-students").equals("תלמידים (1)") && GateUi.visibleText(p).contains(kid)
+                && GateUi.visibleText(p).contains("עוד לא הגיש"));
         GateUi.shot(p, "panel-2b-computers-and-students");
         clickId(p, "release-student:" + kid);
         Window askKid = waitDialog("להסיר את התלמיד?", null);
         check("שאלה לפני הסרת תלמיד", askKid != null && GateUi.visibleText(askKid).contains("ההגשות שלו נשארות אצלך"));
         GateUi.click(askKid, "הסרה");
-        waitLabel(p, "students-title", "תלמידים שמשויכים אליך (0)");
-        check("אחרי ההסרה: אין תלמידים משויכים", label(p, "students-title").equals("תלמידים שמשויכים אליך (0)"));
+        waitTab(p, "tab-students", "תלמידים (0)");
+        check("אחרי ההסרה: אין תלמידים משויכים, עם אישור מתחת לרשימה (" + label(p, "roster-note") + ")", tab(p, "tab-students").equals("תלמידים (0)")
+                && GateUi.visibleText(p).contains("עוד אין תלמידים משויכים") && label(p, "roster-note").contains("התלמיד הוסר"));
+        clickId(p, "tab-stations");
         String left = Json.str(Json.obj(Json.arr(me(t1).get("stations")).get(0)).get("id"));
         clickId(p, "release-station:" + left);
         Window askSt = waitDialog("לשחרר את המחשב?", null);
         check("שאלה לפני שחרור מחשב (עם הכינוי)", askSt != null && GateUi.visibleText(askSt).contains("ההיתר חוזר אליך"));
         GateUi.shot(askSt, "panel-2c-release-confirm");
         GateUi.click(askSt, "שחרור");
-        waitLabel(p, "stations-title", "מחשבי המעבדה שלך (0)");
-        check("אחרי השחרור מהחלון: אין מחשבים, 0 מתוך 5 (" + label(p, "seats") + ")", label(p, "stations-title").equals("מחשבי המעבדה שלך (0)") && label(p, "seats").contains("0 מתוך 5"));
+        waitTab(p, "tab-stations", "מחשבי המעבדה (0)");
+        check("אחרי השחרור מהחלון: אין מחשבים, 0 מתוך 5 (" + label(p, "seats") + ")", tab(p, "tab-stations").equals("מחשבי המעבדה (0)") && label(p, "seats").contains("0 מתוך 5"));
         check("/v1/me: בלי מחשבים", Json.arr(me(t1).get("stations")).isEmpty());
         GateUi.shot(p, "panel-2d-after-teacher-release");
+        manyRows((AccessGate.TeacherPanel) p);
 
         // ---- 5. התנתקות מהחלון: שאלה בעברית → ביטול בשרת, מחיקה מהמחשב, החלון נסגר, הכפתור נכבה, מסך הכניסה חוזר
         String token = Json.str(Account.userState().get("token"));
@@ -350,6 +356,121 @@ public class TeacherPanelIt {
         if (b == null) { check("כפתור " + id + " קיים", false); return; }
         SwingUtilities.invokeLater(b::doClick);
         Thread.sleep(300);
+    }
+
+    /**
+     * כיתה אמיתית: 30 תלמידים (3 כיתות ועוד כמה בלי כיתה) ו-12 מחשבי מעבדה — נתונים מדומים לתוך אותו חלון. הרשימה נגללת
+     * (החלון לא גדל מעבר למסך), התלמידים מקובצים לפי כיתה, והחיפוש והסינון מצמצמים אותה.
+     */
+    static void manyRows(final AccessGate.TeacherPanel p) throws Exception {
+        final String[] first = { "נועה", "איתי", "יעל", "דניאל", "שירה", "עומר", "תמר", "יונתן", "מאיה", "אורי", "רוני", "עידו", "הילה", "נדב", "ליה", "אלון" };
+        final String[] last = { "כהן", "לוי", "מזרחי", "פרץ", "ביטון", "אברהם", "פרידמן", "אזולאי", "דהן", "שפירא", "חדד" };
+        final String[] cls = { "י'1", "י'1", "י'1", "י'2", "י'2", "יא'3", "" };
+        final long[] seen = { 3, 40, 95, 180, 60 * 26, 60 * 24 * 3, 60 * 24 * 5, 60 * 24 * 12, 60 * 24 * 45, -1 };
+        final java.util.List<Object> st = new java.util.ArrayList<Object>(), su = new java.util.ArrayList<Object>();
+        int old = 0, cohen = 0, y2 = 0;
+        for (int i = 12; i >= 1; i--) {   // בסדר הפוך — הרשימה ממיינת לפי הכינוי ("עמדה 2" לפני "עמדה 10")
+            long s = seen[(i * 7) % seen.length];
+            if (s > 60 * 24 * 30) old++;
+            st.add(row("id", "st" + i, "name", "מעבדה 2 · עמדה " + i, "lastSeen", s < 0 ? "" : java.time.Instant.ofEpochMilli(System.currentTimeMillis() - s * 60000L).toString()));
+        }
+        for (int i = 0; i < 30; i++) {
+            String n = first[i % first.length] + " " + last[(i * 3) % last.length], c = cls[i % cls.length];
+            if (n.contains("כהן")) cohen++;
+            if (c.equals("י'2")) y2++;
+            su.add(row("email", "kid" + (i + 1) + (i % 5 == 0 ? ".with.a.very.long.address" : "") + "@school.example.org", "name", n, "className", c,
+                    "lastSubmitAt", i % 4 == 3 ? "" : java.time.Instant.ofEpochMilli(System.currentTimeMillis() - (30L + i * 400L) * 60000L).toString()));
+        }
+        final Map<String, Object> body = row("releasesLeft", 3, "stations", st, "students", su);
+        SwingUtilities.invokeAndWait(() -> p.showLists(new Account.Result("ok", "", body), true));
+        Thread.sleep(300);
+        clickId(p, "tab-stations");
+        check("הרבה שורות: הלשוניות עם המספרים (" + tab(p, "tab-stations") + " / " + tab(p, "tab-students") + ")",
+                tab(p, "tab-stations").equals("מחשבי המעבדה (12)") && tab(p, "tab-students").equals("תלמידים (30)"));
+        check("הרבה שורות: 12 מחשבים ברשימה, עם כפתור שחרור לכל אחד", countIds(p, "station:") == 12 && countIds(p, "release-station:") == 12);
+        java.awt.Component r1 = comp(p, "station:st1"), r2 = comp(p, "station:st2"), r10 = comp(p, "station:st10");
+        check("הרבה שורות: המחשבים ממוינים לפי הכינוי — עמדה 1, 2, … 10 (לא 1, 10, 2)", r1.getY() < r2.getY() && r2.getY() < r10.getY());
+        java.awt.Rectangle scr = java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        javax.swing.JScrollPane sp = (javax.swing.JScrollPane) SwingUtilities.getAncestorOfClass(javax.swing.JScrollPane.class, r1);
+        int rows = sp.getViewport().getHeight() / Roster.ROW;
+        check("הרבה שורות: החלון בתוך המסך (" + p.getHeight() + " מתוך " + scr.height + "), ולפחות 8 שורות גלויות (" + rows + ")", p.getHeight() <= scr.height && rows >= 8);
+        check("הרבה שורות: שורה אחת לכל מחשב, כולן ברוחב הרשימה (" + r1.getWidth() + " / " + sp.getViewport().getWidth() + ")",
+                r1.getHeight() == Roster.ROW && r1.getWidth() == sp.getViewport().getWidth());
+        GateUi.shot(p, "panel-2e-many-computers");
+        SwingUtilities.invokeAndWait(() -> p.roster.filterBy("old"));
+        check("מחשבים: סינון 'לא פעלו מעל 30 יום' (" + p.roster.shownRows + " / " + old + ", " + label(p, "roster-count") + ")",
+                old > 0 && p.roster.shownRows == old && countIds(p, "station:") == old && label(p, "roster-count").equals("מוצגים " + old + " מתוך 12")
+                        && GateUi.visibleText(p).contains("אולי הוחלף"));
+        SwingUtilities.invokeAndWait(() -> p.roster.filterBy(""));
+
+        clickId(p, "tab-students");
+        check("הרבה שורות: 30 תלמידים ברשימה, מקובצים ל-4 כותרות (3 כיתות ו'בלי כיתה')", countIds(p, "student:") == 30 && countIds(p, "group:") == 4
+                && p.roster.shownRows == 30);
+        java.awt.Component g1 = comp(p, "group:י'1"), g2 = comp(p, "group:י'2"), g3 = comp(p, "group:יא'3"), g0 = comp(p, "group:בלי כיתה");
+        check("הרבה שורות: הכיתות לפי הסדר, 'בלי כיתה' בסוף", g1 != null && g2 != null && g3 != null && g0 != null && g1.getY() < g2.getY() && g2.getY() < g3.getY()
+                && g3.getY() < g0.getY());
+        check("הרבה שורות: מספר התלמידים בכותרת של כל כיתה", GateUi.visibleText(p).contains(y2 + " תלמידים"));
+        check("הרבה שורות: הרשימה נגללת (ארוכה מהחלון), והחלון לא גדל", sp.getVerticalScrollBar().isVisible() && p.getHeight() <= scr.height);
+        GateUi.shot(p, "panel-2f-many-students");
+        final String y2key = "c:י'2";
+        check("תלמידים: בתפריט הסינון כל הכיתות (" + p.roster.filterKeys() + ")", p.roster.filterKeys().equals(java.util.Arrays.asList("", "c:י'1", y2key, "c:יא'3", "c:")));
+        SwingUtilities.invokeAndWait(() -> p.roster.filterBy(y2key));
+        check("תלמידים: סינון לפי כיתה (" + label(p, "roster-count") + ")", p.roster.shownRows == y2 && countIds(p, "student:") == y2 && countIds(p, "group:") == 1
+                && label(p, "roster-count").equals("מוצגים " + y2 + " מתוך 30"));
+        GateUi.shot(p, "panel-2g-one-class");
+        SwingUtilities.invokeAndWait(() -> p.roster.filterBy(""));
+        search(p, "כהן");
+        check("תלמידים: חיפוש לפי שם (" + p.roster.shownRows + " / " + cohen + ")", cohen > 0 && cohen < 30 && p.roster.shownRows == cohen && countIds(p, "student:") == cohen);
+        GateUi.shot(p, "panel-2h-search");
+        search(p, "KID17@");
+        check("תלמידים: חיפוש לפי מייל (בלי הבדל בין אותיות גדולות לקטנות)", p.roster.shownRows == 1 && comp(p, "student:kid17@school.example.org") != null);
+        search(p, "יא'3");
+        check("תלמידים: חיפוש לפי כיתה", p.roster.shownRows > 0 && countIds(p, "group:") == 1 && comp(p, "group:יא'3") != null);
+        search(p, "אין כזה");
+        check("תלמידים: חיפוש בלי תוצאות — הודעה, בלי שורות", p.roster.shownRows == 0 && countIds(p, "student:") == 0 && GateUi.visibleText(p).contains("לא נמצא \"אין כזה\""));
+        search(p, "");
+        check("תלמידים: ניקוי החיפוש — שוב 30", p.roster.shownRows == 30 && label(p, "roster-count").isEmpty());
+        // הרשימה נשארת במקום שגללו אליו כשהנתונים מתרעננים (אחרי הסרת תלמיד מסוף הרשימה לא קופצים להתחלה)
+        SwingUtilities.invokeAndWait(() -> sp.getVerticalScrollBar().setValue(400));
+        SwingUtilities.invokeAndWait(() -> p.showLists(new Account.Result("ok", "", body), true));
+        Thread.sleep(300);
+        check("רענון הנתונים: הגלילה נשארת במקום (" + sp.getVerticalScrollBar().getValue() + ")", sp.getVerticalScrollBar().getValue() == 400);
+        SwingUtilities.invokeAndWait(() -> p.showLists(null, true));
+        check("בלי תשובה מהשרת: הודעה במקום הרשימות, בלי שורות", countIds(p, "student:") == 0 && GateUi.visibleText(p).contains("לא נטענו"));
+        openPanel();   // חוזרים לנתונים האמיתיים מהשרת
+    }
+
+    static Map<String, Object> row(Object... kv) {
+        Map<String, Object> m = new java.util.LinkedHashMap<String, Object>();
+        for (int i = 0; i < kv.length; i += 2) m.put((String) kv[i], kv[i + 1]);
+        return m;
+    }
+
+    static void search(Window w, final String q) throws Exception {
+        final javax.swing.JTextField f = (javax.swing.JTextField) comp(w, "roster-search");
+        SwingUtilities.invokeAndWait(() -> f.setText(q));
+        Thread.sleep(150);
+    }
+
+    static java.awt.Component comp(java.awt.Component c, String id) {
+        if (c instanceof javax.swing.JComponent && id.equals(((javax.swing.JComponent) c).getClientProperty("dsviz.id"))) return c;
+        if (c instanceof java.awt.Container) for (java.awt.Component k : ((java.awt.Container) c).getComponents()) {
+            java.awt.Component r = comp(k, id);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    /** הטקסט של לשונית ("מחשבי המעבדה (2)") */
+    static String tab(Window w, String id) {
+        javax.swing.AbstractButton b = byId(w, id);
+        return b == null ? "" : b.getText().replace("\u200F", "").trim();
+    }
+
+    static void waitTab(Window w, String id, String want) throws InterruptedException {
+        long end = System.currentTimeMillis() + 15000;
+        while (System.currentTimeMillis() < end && !tab(w, id).equals(want)) Thread.sleep(150);
+        Thread.sleep(200);
     }
 
     static void waitLabel(Window w, String id, String want) throws InterruptedException {
