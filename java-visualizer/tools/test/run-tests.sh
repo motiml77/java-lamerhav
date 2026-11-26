@@ -372,6 +372,10 @@ grep -qF -- '[רקורסיה: רקורסיה פשוטה | פעולות sum | ע�
 javac -encoding UTF-8 -cp "$JAR" -d "$R" recursion/paint/RecursionWarnPaint.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$R:$JAR" unit4.collectionsLib.RecursionWarnPaint "$R/pics" > "$R/paint.txt" 2>&1 \
     && grep -q MARK-END "$R/paint.txt" && grep '^  ok' "$R/paint.txt" || { cat "$R/paint.txt"; exit 1; }
+# ההזחה בכרטיסי הרקורסיה: מה שבתוך if / else / לולאה מוזח פנימה — לפי מבנה הקוד, לא לפי הרווחים
+javac -encoding UTF-8 -cp "$JAR" -d "$R" recursion/ScopeCheck.java
+java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$R:$JAR" unit4.collectionsLib.ScopeCheck > "$R/scope.txt" 2>&1 \
+    && grep -q MARK-END "$R/scope.txt" && grep '^  ok' "$R/scope.txt" || { cat "$R/scope.txt"; exit 1; }
 
 echo "== 5ז2. מעקב המשתנים לכל פעולה פעילה: הפעולה שרצה, ולכל פעולה שמחכה (גם ברקורסיה) — המשתנים שלה ברגע הזה"
 # [מסגרות #צעד: הפנימית{משתנים} ← מי שקרא לה{...} ← ... ← main{...} | המשפט] — מה שהרשימה במעקב המשתנים מציגה לכל פעולה

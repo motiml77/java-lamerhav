@@ -36,6 +36,7 @@ final class RecursionPanel extends JPanel {
     static final class Entry {
         int line;
         String code;
+        int depth;                                    // עומק הסקופ של השורה בקובץ (Scope) — להזחה בכרטיס: מה שבתוך if / לולאה מוזח פנימה
         Boolean cond;                                 // תנאי if / while: התוצאה (null = לא ידוע)
         String returned;                              // שורת return: הערך שהוחזר
         boolean returnedVoid;
@@ -221,6 +222,7 @@ final class RecursionPanel extends JPanel {
         e.line = where.line;
         String code = SourceFiles.line(where);
         e.code = code == null ? "" : code.trim();
+        e.depth = Scope.depth(SourceFiles.lines(where), where.line);
         c.trail.add(e);
     }
 
@@ -567,7 +569,8 @@ final class RecursionPanel extends JPanel {
         }
         g.setFont(small);
         FontMetrics fm = g.getFontMetrics();
-        String shown = fit(e.code, fm, W - 46 - tagW - (tag != null ? 6 : 0));
+        int in = indent(c, e);
+        String shown = fit(e.code, fm, W - 46 - in - tagW - (tag != null ? 6 : 0));
         callFrames(g, c, e, y, shown, fm, current);   // המסגרת סביב הקריאה (מתחת לטקסט)
         if (tag != null) {
             g.setFont(smallBold);
@@ -581,7 +584,16 @@ final class RecursionPanel extends JPanel {
         g.setColor(MUTED);
         String num = String.valueOf(e.line);
         g.drawString(num, c.x + 28 - fm.stringWidth(num), y);
-        drawCode(g, shown, c.x + 34, y, fm);
+        drawCode(g, shown, c.x + 34 + in, y, fm);
+    }
+
+    /** כמה פיקסלים להזיח שורה בכרטיס: לפי עומק הסקופ שלה מעל השורה הכי "חיצונית" שרצה בקריאה (גוף הפעולה) */
+    static final int CODE_INDENT = 14, MAX_CODE_INDENT = 4;
+
+    static int indent(Call c, Entry e) {
+        int base = e.depth;
+        for (Entry o : c.trail) base = Math.min(base, o.depth);
+        return Math.max(0, Math.min(MAX_CODE_INDENT, e.depth - base)) * CODE_INDENT;
     }
 
     /** שורת קוד צבעונית: כל מקטע בצבע שלו (הגופן ברוחב קבוע, אז מתקדמים לפי מדידה) */
@@ -647,8 +659,9 @@ final class RecursionPanel extends JPanel {
             int[] span = callSpan(e.code, k.method, idx);
             double x0, x1;
             if (span != null && span[1] <= shown.length() && shown.regionMatches(0, e.code, 0, span[1])) {
-                x0 = c.x + 34 + fm.stringWidth(shown.substring(0, span[0])) - 1.5;
-                x1 = c.x + 34 + fm.stringWidth(shown.substring(0, span[1])) + 1.5;
+                int in = indent(c, e);
+                x0 = c.x + 34 + in + fm.stringWidth(shown.substring(0, span[0])) - 1.5;
+                x1 = c.x + 34 + in + fm.stringWidth(shown.substring(0, span[1])) + 1.5;
             } else {
                 x0 = c.x + 3;
                 x1 = c.x + W - 3;
