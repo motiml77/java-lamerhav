@@ -4545,7 +4545,7 @@ function withCors(request, env, res) {
   h.set("vary", "origin");
   return new Response(res.body, { status: res.status, headers: h });
 }
-var VERSION = "2026-11-25.1";
+var VERSION = "2026-11-26.1";
 async function handle(request, env, ctx) {
   const url = new URL(request.url);
   if (request.method === "GET" && (url.pathname === "/v1/health" || url.pathname === "/")) {
