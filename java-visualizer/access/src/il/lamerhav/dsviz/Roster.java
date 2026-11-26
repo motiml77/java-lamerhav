@@ -61,6 +61,8 @@ final class Roster extends JPanel {
     private static final Cols STUDENT_COLS = new Cols(new double[] { 1, 1.15, 0, 0 }, new int[] { 0, 0, 112, 78 });
 
     private final Actions actions;
+    /** הגרסה עם מרכז הבקרה (תלמידים מצטרפים למורה) — הלשונית "תלמידים" תמיד מוצגת; בלי — רק כשיש תלמידים משויכים */
+    private final boolean classroom;
     private final JButton tabStations = tab("tab-stations"), tabStudents = tab("tab-students");
     private final Search search = new Search();
     /** הסינון: כפתור שפותח תפריט (כיתות / מתי פעלו) — נראה אותו דבר בכל סביבה, בלי תיבת הבחירה של מערכת ההפעלה */
@@ -79,9 +81,10 @@ final class Roster extends JPanel {
     /** לבדיקות: כמה שורות (מחשבים / תלמידים) מוצגות עכשיו ברשימה, אחרי החיפוש והסינון */
     volatile int shownRows;
 
-    Roster(Actions actions) {
+    Roster(Actions actions, boolean classroom) {
         super(new BorderLayout(0, 6));
         this.actions = actions;
+        this.classroom = classroom;
         setOpaque(false);
         setAlignmentX(Component.RIGHT_ALIGNMENT);
 
@@ -228,6 +231,8 @@ final class Roster extends JPanel {
 
     private void rebuild(boolean top) {
         int at = scroll.getVerticalScrollBar().getValue();
+        tabStudents.setVisible(classroom || !students.isEmpty());
+        if (!tabStudents.isVisible()) onStudents = false;
         style(tabStations, "מחשבי המעבדה" + (loaded ? " (" + stations.size() + ")" : ""), !onStudents);
         style(tabStudents, "תלמידים" + (loaded ? " (" + students.size() + ")" : ""), onStudents);
         fillFilter();

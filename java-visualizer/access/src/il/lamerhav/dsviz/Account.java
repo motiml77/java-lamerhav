@@ -123,6 +123,8 @@ public final class Account {
      * (ולמורה של העמדה) את עמדת הניהול, ההגשות והציונים גם כשמרכז הבקרה עוד כבוי לכולם. לקוח ישן לא שולח, והשרת עונה לו כמו קודם.
      */
     static final List<String> CAPS = java.util.Collections.unmodifiableList(java.util.Arrays.asList("register", "classroom"));
+    /** זו הגרסה עם מרכז הבקרה (תלמידים מצטרפים למורה, הגשות וציונים) — עמדת הניהול בתוכנה מציגה גם את התלמידים וההגשות */
+    static final boolean CLASSROOM = true;
 
     /** המפתח הציבורי של השרת (החתימה על האישור). ציבורי — לא סוד; המפתח הפרטי נמצא רק בשרת (PASS_KEY) */
     static final String PASS_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzcPy66SILXotJ2VPxjt93e7dGBR1chdnNh6Ptgr6KYXn5DGhSYEbkT3dsFKWO96QQCw/wG/bsQmqtLDxLHgjzOxjmYMGxyLmBkhHfywmYBl8JvRRPkWUn5AqZI5VgQ7cqeF4vbjMIOeb3jR3GB4QhfaI04v+4mAna6KQEC0drXfhT5oMuOhbfxH2t77tCC1iUkAnnfA/VprWcvPyieyzdTxZ4/r4e9VS5hTGceRsKpsdC7/Euy31vqrJxeVLV7Mwc1PkAMk0ghEJtSRBbvZdRUv5X5K8DLAjVpEVRHlq2XwobMI2c8oSU8qGESGsUk/R1lGUWIqGOXE+UdW6ODPVjQIDAQAB";

@@ -889,7 +889,9 @@ public final class AccessGate {
         private final JLabel fresh = text(" ", 14, true, BLUE);
         private final JButton copy = secondary("העתק קוד");
         /** מחשבי המעבדה של המורה והתלמידים שמשויכים אליו — מהשרת (Account.teacherPanel); בנוי להרבה שורות (Roster) */
-        final Roster roster = new Roster(this);
+        final Roster roster = new Roster(this, Account.CLASSROOM);
+        /** החלון נמדד (fitWindow) כשהרשימות מוצגות / מוסתרות */
+        private boolean sizedWithRoster;
         private int releasesLeft = -1;
         private String codeText = "";
         /** לבדיקות: כמה פעמים הנתונים נטענו מחדש מהשרת */
@@ -924,7 +926,7 @@ public final class AccessGate {
             who.add(fresh);
             card.add(who, BorderLayout.CENTER);
             JPanel codeBox = column();
-            codeBox.add(text("הקוד שלך — לתלמידים ולמחשבי המעבדה", 12, true, MUTED));
+            codeBox.add(text(Account.CLASSROOM ? "הקוד שלך — לתלמידים ולמחשבי המעבדה" : "הקוד שלך לחיבור מחשבי המעבדה", 12, true, MUTED));
             codeBox.add(Box.createVerticalStrut(6));
             big.setFont(new Font(Font.MONOSPACED, Font.BOLD, 30));
             big.setForeground(BLUE);
@@ -962,7 +964,7 @@ public final class AccessGate {
             root.add(roster, BorderLayout.CENTER);
 
             JPanel bottom = column();
-            bottom.add(text("ההגשות, הציונים והכיתות — בעמדת הניהול בדפדפן.", 13, false, MUTED));
+            bottom.add(text(Account.CLASSROOM ? "ההגשות, הציונים והכיתות — בעמדת הניהול בדפדפן." : "קניית עמדות ושאר הפעולות — בעמדת הניהול בדפדפן.", 13, false, MUTED));
             bottom.add(Box.createVerticalStrut(10));
             JPanel row = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
             row.setOpaque(false);
@@ -980,28 +982,43 @@ public final class AccessGate {
             root.add(bottom, BorderLayout.SOUTH);
             root.applyComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
             setContentPane(root);
-            fill(Account.teacherInfo());
-            pack();
-            // מסך נמוך (מחשב נייד): החלון לא גבוה מהמסך — הרשימה מתקצרת (ונגללת), השאר נשאר
-            java.awt.Rectangle scr = java.awt.GraphicsEnvironment.isHeadless() ? null : java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
-            // ובמסך גבוה — עוד כמה שורות ברשימה מההתחלה
-            if (scr != null && roster.isVisible() && getHeight() > scr.height - 16) setSize(getWidth(), Math.max(420, scr.height - 16));
-            else if (scr != null && roster.isVisible()) setSize(getWidth(), Math.min(scr.height - 120, getHeight() + 4 * Roster.ROW) > getHeight() ? Math.min(scr.height - 120, getHeight() + 4 * Roster.ROW) : getHeight());
-            setMinimumSize(new Dimension(Math.min(640, getWidth()), roster.isVisible() ? Math.min(460, getHeight()) : 0));
+            Map<String, Object> info = Account.teacherInfo();
+            fill(info);
+            // הרשימות — רק למורה מחובר, ורק כשהשרת יודע להחזיר אותן ("panel"; נשמר מהבדיקה האחרונה, ומתעדכן ב-reload)
+            roster.setVisible(info != null && Account.serverHas(false, "panel"));
+            fitWindow();
             setLocationRelativeTo(parent);
             reload();
+        }
+
+        /**
+         * הגודל של החלון: לפי התוכן; עם הרשימות — במסך נמוך (מחשב נייד) לא גבוה מהמסך (הרשימה מתקצרת ונגללת, השאר נשאר),
+         * ובמסך גבוה עוד כמה שורות ברשימה מההתחלה. המשתמש יכול להגדיל את החלון — הרשימה גדלה איתו.
+         */
+        private void fitWindow() {
+            setMinimumSize(new Dimension(0, 0));
+            pack();
+            java.awt.Rectangle scr = java.awt.GraphicsEnvironment.isHeadless() ? null : java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+            if (scr != null && roster.isVisible()) {
+                int h = getHeight();
+                h = h > scr.height - 16 ? Math.max(420, scr.height - 16) : Math.max(h, Math.min(scr.height - 120, h + 4 * Roster.ROW));
+                setSize(getWidth(), h);
+                if (isShowing() && getY() + h > scr.y + scr.height) setLocation(getX(), Math.max(scr.y, scr.y + scr.height - h));
+            }
+            setMinimumSize(new Dimension(Math.min(640, getWidth()), roster.isVisible() ? Math.min(460, getHeight()) : 0));
+            sizedWithRoster = roster.isVisible();
         }
 
         /** אחרי שינוי בטקסטים: החלון נשאר בגודל שהמשתמש בחר; רק אם הרשימה נדחקה (הודעה חדשה למעלה) — מוסיפים לו גובה */
         private void refit() {
             if (!isDisplayable()) return;
+            if (!roster.isVisible() || !sizedWithRoster) {
+                fitWindow();
+                return;
+            }
             validate();
             int need = Roster.HEAD + 4 * Roster.ROW + 80 - roster.getHeight();
-            if (roster.isVisible() && need > 0) setSize(getWidth(), getHeight() + need);
-            else if (!roster.isVisible()) {
-                setMinimumSize(new Dimension(getMinimumSize().width, 0));
-                pack();
-            }
+            if (need > 0) setSize(getWidth(), getHeight() + need);
             repaint();
         }
 
@@ -1026,7 +1043,8 @@ public final class AccessGate {
                 int s = ((Number) t.get("seats")).intValue(), u = ((Number) t.get("used")).intValue();
                 seats.setText(RLM + (s < 0 ? "עמדות מחשב: מתעדכן…" : "עמדות מחשב בשימוש: " + Math.max(0, u) + " מתוך " + s));
                 note.setText(wrapHtml(codeText.isEmpty() ? "הקוד עוד לא נטען. נכנסים לעמדת הניהול בדפדפן (הכפתור למטה) — שם הוא מוצג תמיד."
-                        : "תלמיד שנכנס עם Google מצטרף אליך עם הקוד הזה, ובמעבדה מקלידים אותו במסך \"עמדת מחשב\". הקוד קבוע.", NOTE_W));
+                        : Account.CLASSROOM ? "תלמיד שנכנס עם Google מצטרף אליך עם הקוד הזה, ובמעבדה מקלידים אותו במסך \"עמדת מחשב\". הקוד קבוע."
+                        : "מקלידים אותו בכל מחשב במעבדה, במסך \"עמדת מחשב\". הקוד קבוע — אפשר לחזור לכאן בכל פעם.", NOTE_W));
                 notice.setVisible(false);
                 copy.setEnabled(!codeText.isEmpty());
             }
@@ -1057,11 +1075,13 @@ public final class AccessGate {
 
         /**
          * מחשבי המעבדה (כינוי, מתי פעל לאחרונה, שחרור) והתלמידים המשויכים (כיתה, הגשה אחרונה, הסרה) — ברכיב Roster.
-         * teacher=false — כבר לא מורה מחובר: בלי רשימות. בלי תשובה מהשרת — הודעה במקום הרשימה.
+         * teacher=false — כבר לא מורה מחובר: בלי רשימות; וכך גם כשהשרת לא יודע להחזיר אותן (status "none").
+         * בלי תשובה מהשרת (אין חיבור) — הודעה במקום הרשימה.
          */
         void showLists(Account.Result p, boolean teacher) {
-            roster.setVisible(teacher);
-            if (!teacher) {
+            boolean show = teacher && (p != null ? !"none".equals(p.status) : Account.serverHas(false, "panel"));
+            roster.setVisible(show);
+            if (!show) {
                 refit();
                 return;
             }
@@ -1119,7 +1139,7 @@ public final class AccessGate {
                 try { r = Account.refresh(); } catch (Throwable e) { r = null; }
                 final boolean online = r != null && !"offline".equals(r.status) && !"error".equals(r.status);
                 Account.Result sum, pan;
-                try { sum = online ? Account.teacherSummary() : null; } catch (Throwable e) { sum = null; }
+                try { sum = online && Account.CLASSROOM ? Account.teacherSummary() : null; } catch (Throwable e) { sum = null; }
                 try { pan = online ? Account.teacherPanel() : null; } catch (Throwable e) { pan = null; }
                 final Account.Result summary = sum, panel = pan;
                 SwingUtilities.invokeLater(() -> {
