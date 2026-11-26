@@ -13,6 +13,8 @@
 #   AutomataIt     — "מודלים חישוביים" (AutomataLauncher, תהליך נפרד): אבטחת השרת המקומי, הממשק לדף, כניסה / התנתקות משותפות
 # מריצים מתוך worker:  npm run test:access-java   (מפעיל את האמולטור ואת השרת המקומי)
 # צילומי מסך: $ACC_SHOTS (ברירת מחדל: תיקייה זמנית)
+# ACC_SERVER_ROOT — מאיפה מריצים את השרת המקומי (ברירת מחדל: העץ הזה). השרת שרץ בפועל נבנה מהענף של מרכז הבקרה, ולכן
+#   את הרשימות בעמדת הניהול (מחשבי המעבדה) בודקים גם מולו: ACC_SERVER_ROOT=<העץ של מרכז הבקרה>/java-visualizer ACC_ONLY=TeacherPanelIt
 set -e
 cd "$(dirname "$0")/../../.."
 R="$(pwd)"
@@ -64,7 +66,7 @@ xrun() { if [ -n "$DISPLAY" ]; then "$@"; else xvfb-run -a -s "-screen 0 1600x10
 echo "=== OsTrustTest"
 xrun $J il.lamerhav.dsviz.OsTrustTest "$W/ostrust" "$SHOTS/OsTrustTest" || rc=1
 SERVER=http://127.0.0.1:8787
-PORT=8787 ADMIN_EMAILS=motiml77@gmail.com node "$R/worker/tools/dev-server.mjs" > "$W/dev-server.log" 2>&1 &
+PORT=8787 ADMIN_EMAILS=motiml77@gmail.com node "${ACC_SERVER_ROOT:-$R}/worker/tools/dev-server.mjs" > "$W/dev-server.log" 2>&1 &
 DEV=$!
 trap 'kill $DEV 2>/dev/null' EXIT
 for i in $(seq 100); do curl -s "$SERVER/v1/access/config" > /dev/null && break; sleep 0.2; done
