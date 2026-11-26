@@ -15,6 +15,8 @@ import java.util.Locale;
  */
 final class Dock {
     static final int LEFT = 0, RIGHT = 1, TOP = 2, BOTTOM = 3, CENTER = 4;
+    /** הגבולות של ratio: אף צד של קו גרירה לא קטן מ-5% (גם בגרירה — DockSplit — וגם בסידור שמור) */
+    static final double MIN_RATIO = 0.05, MAX_RATIO = 0.95;
 
     String card;          // בעלה: שם החלק; בקו גרירה: null
     boolean across;
@@ -92,7 +94,7 @@ final class Dock {
             int open = s.indexOf('(', at[0]);
             if (open < 0) return null;
             double r = Double.parseDouble(s.substring(at[0] + 1, open));
-            if (!(r >= 0.05 && r <= 0.95)) return null;
+            if (!(r >= MIN_RATIO && r <= MAX_RATIO)) return null;
             at[0] = open + 1;
             Dock a = parse(s, at);
             if (a == null || s.charAt(at[0]) != ',') return null;
@@ -110,6 +112,30 @@ final class Dock {
         Dock d = leaf(s.substring(at[0], end));
         at[0] = end;
         return d;
+    }
+
+    /**
+     * הגודל (בפיקסלים) של הצד הראשון (a) של קו גרירה. total — המקום של שני הצדדים יחד (בלי הקו עצמו);
+     * minA / minB — הגודל הקטן ביותר של כל צד (בצד שהוא בעצמו כמה חלקים: הסכום שלהם — DockSplit.getMinimumSize).
+     * לפי ratio, אבל אף צד לא קטן מהמינימום שלו; ואם אין מקום לשני המינימומים (חלון קטן מאוד) — מתחלקים לפי הצורך (minA : minB).
+     * כך כל שינוי גודל (גרירת קו אחר, שינוי גודל החלון) שומר על היחסים בין החלקים, ואף חלק לא נעלם.
+     */
+    static int firstSize(int total, double ratio, int minA, int minB) {
+        if (total <= 0) return 0;
+        int lo = minA, hi = total - minB;
+        if (lo > hi) return (int) Math.round(total * (minA / (double) Math.max(1, minA + minB)));
+        return Math.max(lo, Math.min(hi, (int) Math.round(total * ratio)));
+    }
+
+    /**
+     * ה-ratio אחרי שהמשתמש גרר את הקו כך שהצד הראשון יהיה pos פיקסלים — נעצר במינימום של כל צד (וב-5% / 95%).
+     * אם אין לאן לזוז (אין מקום אפילו לשני המינימומים) — ratio נשאר כמו שהיה.
+     */
+    static double dragRatio(int pos, int total, double ratio, int minA, int minB) {
+        int lo = minA, hi = total - minB;
+        if (total <= 0 || lo > hi) return ratio;
+        pos = Math.max(lo, Math.min(hi, pos));
+        return Math.max(MIN_RATIO, Math.min(MAX_RATIO, pos / (double) total));
     }
 
     /**

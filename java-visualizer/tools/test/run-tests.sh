@@ -453,15 +453,32 @@ javac -encoding UTF-8 -cp "$JAR" -d "$SA" anim/StructAnimPaint.java
 java -Djava.awt.headless=true -Dstdout.encoding=UTF-8 -cp "$SA:$JAR" unit4.collectionsLib.StructAnimPaint "$SA/frames" > "$SA/paint.txt" 2>&1 \
     && grep -q MARK-END "$SA/paint.txt" && grep '^  ok' "$SA/paint.txt" || { cat "$SA/paint.txt"; exit 1; }
 
-echo "== 5ח3. סידור החלקים בחלון ההרצה: גרירת חלק מהכותרת אל צד של חלק אחר / החלפת מקומות, גודל הקווים, שמירה לפעם הבאה, \"פריסה רגילה\""
-# הלוגיקה של העץ (Dock) — בלי חלון; ואם יש xvfb: החלון האמיתי (TraceViewer על קובץ צעדים) עם גרירות עכבר אמיתיות (Robot)
+echo "== 5ח3. סידור החלקים בחלון ההרצה: גרירת חלק מהכותרת אל צד של חלק אחר / החלפת מקומות, גרירת כל קו (יחסים, גודל קטן ביותר), שמירה לפעם הבאה, \"פריסה רגילה\""
+# הלוגיקה של העץ (Dock) — בלי חלון; ואם יש xvfb: החלון האמיתי (TraceViewer על קובץ צעדים) עם גרירות עכבר אמיתיות (Robot) —
+# פעם על sample.trace (כל התרחישים) ופעם על recursion.trace (כשבחלק "התצוגה הוויזואלית" מוצג מעקב הרקורסיה).
+# ושוב ב-Java חדש יותר, אם יש (DSVIZ_JAVA_NEW=<java>, או ה-Java של ה-Eclipse של הבדיקות — Java 25): מ-Java 24 ‏JSplitPane מחליף
+# צדדים בחלון מימין לשמאל, ובגלל זה אצל מי שמריץ ב-Java 25 החלון נפתח הפוך וקווי הגרירה לא זזו — אף שב-Java 21 הכול עבר.
 DK="$W/dock"
-mkdir -p "$DK/cls" "$DK/home"
-javac -encoding UTF-8 -cp "$JAR" -d "$DK/cls" dock/DockCheck.java
+mkdir -p "$DK/cls"
+javac --release 8 -Xlint:-options -encoding UTF-8 -cp "$JAR" -d "$DK/cls" dock/DockCheck.java
+dock_run() {   # $1 = java, $2 = שם ההרצה, $3 = קובץ הצעדים, ואחריו עוד ארגומנטים ל-DockCheck
+    dj=$1; dn=$2; dt=$3; shift 3
+    rm -rf "$DK/home-$dn" && mkdir -p "$DK/home-$dn"
+    xvfb-run -a -s "-screen 0 1600x1000x24" "$dj" -Duser.home="$DK/home-$dn" -Dstdout.encoding=UTF-8 -cp "$DK/cls:$JAR" unit4.collectionsLib.DockCheck "$dt" "$DK/shots-$dn" "$@" > "$DK/out-$dn.txt" 2>&1 \
+        && grep -q MARK-END "$DK/out-$dn.txt" && echo "  ok  $dn: $(grep -c '^  ok' "$DK/out-$dn.txt") בדיקות$(grep -m1 '(Java ' "$DK/out-$dn.txt") — לוגיקה + גרירות אמיתיות בחלון; צילומים: $DK/shots-$dn" || { cat "$DK/out-$dn.txt"; exit 1; }
+}
 if command -v xvfb-run >/dev/null 2>&1; then
-    xvfb-run -a -s "-screen 0 1600x1000x24" java -Duser.home="$DK/home" -Dstdout.encoding=UTF-8 -cp "$DK/cls:$JAR" unit4.collectionsLib.DockCheck dock/sample.trace "$DK/shots" > "$DK/out.txt" 2>&1 \
-        && grep -q MARK-END "$DK/out.txt" && echo "  ok  $(grep -c '^  ok' "$DK/out.txt") בדיקות (לוגיקה + גרירות אמיתיות בחלון; צילומים: $DK/shots)" || { cat "$DK/out.txt"; exit 1; }
+    dock_run java window dock/sample.trace
+    dock_run java recursion dock/recursion.trace recursion
+    NEWJ="${DSVIZ_JAVA_NEW:-$(ls ../../build/eclipse-it/eclipse/plugins/org.eclipse.justj.openjdk.hotspot.jre.full.*/jre/bin/java 2>/dev/null | head -1)}"
+    if [ -n "$NEWJ" ] && [ -x "$NEWJ" ]; then
+        dock_run "$NEWJ" window-newer-java dock/sample.trace
+        dock_run "$NEWJ" recursion-newer-java dock/recursion.trace recursion
+    else
+        echo "  (אין Java חדש יותר לבדוק בו את החלון — DSVIZ_JAVA_NEW=<java>, או ה-Eclipse של הבדיקות ב-build/eclipse-it)"
+    fi
 else
+    mkdir -p "$DK/home"
     java -Djava.awt.headless=true -Duser.home="$DK/home" -Dstdout.encoding=UTF-8 -cp "$DK/cls:$JAR" unit4.collectionsLib.DockCheck > "$DK/out.txt" 2>&1 \
         && grep -q MARK-END "$DK/out.txt" && echo "  ok  $(grep -c '^  ok' "$DK/out.txt") בדיקות לוגיקה (אין xvfb — בלי החלון)" || { cat "$DK/out.txt"; exit 1; }
 fi

@@ -20,8 +20,6 @@ import java.awt.Shape;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -43,7 +41,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
-import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
@@ -163,10 +160,10 @@ final class Viewer extends JFrame {
     private boolean inputShown, inputFocused, followEnd;
     private int shownWait = -1, shownWaitStep = -1, pulse, blinkTick, errorAt = -1;
 
-    /** קווי הגרירה שעל המסך עכשיו, והצומת של כל אחד בעץ הסידור (dock) */
-    private final List<JSplitPane> splits = new ArrayList<JSplitPane>();
-    private final List<Dock> splitNodes = new ArrayList<Dock>();
-    /** סידור החלקים: המשתמש גורר חלק מהכותרת שלו למקום אחר, גורר את הקווים לגודל שהוא רוצה — והכול נשמר לפעם הבאה */
+    /**
+     * סידור החלקים: המשתמש גורר חלק מהכותרת שלו למקום אחר, גורר את הקווים לגודל שהוא רוצה — והכול נשמר לפעם הבאה.
+     * על המסך: כל צומת בעץ הוא DockSplit (שני צדדים וקו גרירה), והגדלים נקבעים רק מה-ratio שבעץ
+     */
     private Dock dock;
     private final Map<String, Card> cards = new java.util.LinkedHashMap<String, Card>();
     private final JPanel dockHolder = new JPanel(new BorderLayout());
@@ -379,7 +376,8 @@ final class Viewer extends JFrame {
 
         // --- סידור (על המסך). הרגיל: מימין — התצוגה הוויזואלית, הכי גדולה ולכל הגובה; משמאל למעלה — הקוד, ומתחתיו מעקב
         // המשתנים והפלט. המשתמש משנה: גורר חלק מהכותרת שלו אל צד של חלק אחר (או אל האמצע — החלפת מקומות), וגורר את הקווים
-        // לגודל שהוא רוצה; הסידור נשמר לפעם הבאה ("פריסה רגילה" בסרגל מחזיר). הקווים עצמם תמיד משמאל לימין (ראו buildDock).
+        // לגודל שהוא רוצה; הסידור נשמר לפעם הבאה ("פריסה רגילה" בסרגל מחזיר). הסידור עצמו פיזי — שמאל / ימין כמו בעץ,
+        // גם כשהחלון מימין לשמאל (DockSplit).
         cards.put("code", codeCard);
         if (Recorder.lineMode) cards.put("vars", varsCard);
         cards.put("out", outCard);
@@ -412,8 +410,6 @@ final class Viewer extends JFrame {
         for (JComponent c : new JComponent[] { codeScroll, consoleScroll, structScroll, inputBar.field })
             c.applyComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
         varsPanel.leftToRight();   // מעקב המשתנים: שמות המשתנים בצד שמאל
-        // קווי הגרירה עצמם — משמאל לימין (רק הם, לא התוכן): מימין לשמאל Swing הופך את הצדדים, והגרירה לא עובדת כמו שצריך
-        for (JSplitPane sp : splits) sp.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
         getLayeredPane().add(dropHint, javax.swing.JLayeredPane.DRAG_LAYER);
 
         keys();
@@ -453,12 +449,6 @@ final class Viewer extends JFrame {
         setMinimumSize(new Dimension(Math.min(760, scr.width), Math.min(520, scr.height)));
         setSize(Math.max(w, Math.min(900, scr.width)), Math.max(h, Math.min(600, scr.height)));
         setLocationRelativeTo(null);
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowOpened(WindowEvent e) {
-                applyDockRatios();   // הגדלים שהמשתמש בחר בפעם הקודמת
-            }
-        });
         // התוכנית מתחילה / מפסיקה לחכות לקלט מהמקלדת — מיד (ולא רק בבדיקה התקופתית)
         Keyboard.listen(new Runnable() {
             public void run() { poll(); }
@@ -513,34 +503,6 @@ final class Viewer extends JFrame {
         return s;
     }
 
-    /**
-     * קו גרירה בין שני חלקים — כמו ב-VS Code / IntelliJ / Visual Studio: דק ושקט, במעבר עכבר ובגרירה קו כחול לכל האורך,
-     * לחיצה כפולה מחזירה לגודל הרגיל, והגודל שנבחר נשמר לפעם הבאה (key)
-     */
-    private JSplitPane split(int orientation, Component a, Component b, Dock node) {
-        final int index = splits.size();
-        JSplitPane s = new JSplitPane(orientation, a, b);
-        s.setUI(new javax.swing.plaf.basic.BasicSplitPaneUI() {
-            @Override
-            public javax.swing.plaf.basic.BasicSplitPaneDivider createDefaultDivider() {
-                return new Sash(this, index);
-            }
-        });
-        s.setResizeWeight(node.ratio);
-        s.setBorder(BorderFactory.createEmptyBorder());
-        s.setOpaque(false);
-        s.setContinuousLayout(true);
-        s.setOneTouchExpandable(false);
-        s.setDividerSize(9);
-        if (a instanceof JComponent) ((JComponent) a).setMinimumSize(new Dimension(60, 40));
-        if (b instanceof JComponent) ((JComponent) b).setMinimumSize(new Dimension(60, 40));
-        // הקו עצמו משמאל לימין (רק הוא, לא התוכן): מימין לשמאל Swing הופך את הצדדים, והגרירה לא עובדת כמו שצריך
-        s.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
-        splits.add(s);
-        splitNodes.add(node);
-        return s;
-    }
-
     // ------------------------------------------------------------ סידור החלקים (Dock)
 
     /** הסידור נשמר בנפרד למצב "שורה-שורה" (ארבעה חלקים) ולמצב בלי מעקב משתנים (שלושה) */
@@ -564,42 +526,43 @@ final class Viewer extends JFrame {
         return d;
     }
 
-    /** בונה את החלקים וקווי הגרירה מחדש לפי dock (אחרי הזזת חלק, "פריסה רגילה", חזרה מחלק מוגדל) */
+    /**
+     * בונה את החלקים וקווי הגרירה מחדש לפי dock (אחרי הזזת חלק, "פריסה רגילה", חזרה מחלק מוגדל).
+     * כל קו גרירה (DockSplit) קובע את הגודל לבד מה-ratio של הצומת שלו — אין מה "להחיל" אחרי הבנייה
+     */
     private void buildDock() {
-        splits.clear();
-        splitNodes.clear();
         dockHolder.removeAll();
         dockHolder.add(build(dock), BorderLayout.CENTER);
         dockHolder.revalidate();
         dockHolder.repaint();
-        applyDockRatios();
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() { applyDockRatios(); }
-        });
     }
 
     private Component build(Dock n) {
         if (n.isLeaf()) return cards.get(n.card);
-        Component a = build(n.a), b = build(n.b);
-        return split(n.across ? JSplitPane.HORIZONTAL_SPLIT : JSplitPane.VERTICAL_SPLIT, a, b, n);
+        // המשתמש גרר את הקו / לחץ עליו פעמיים: הגודל כבר בעץ (n.ratio) — שומרים לפעם הבאה
+        return new DockSplit(n, build(n.a), build(n.b), new Runnable() {
+            public void run() { saveDock(); }
+        });
     }
 
-    /** מקום כל קו לפי היחס שלו בעץ — מלמעלה למטה, לפי הגודל של אזור הסידור (לפני שהחלון מוצג אין גודל — windowOpened קורא שוב) */
-    private void applyDockRatios() {
-        if (dockHolder.getWidth() <= 0 || dockHolder.getHeight() <= 0) return;
-        dockHolder.validate();
-        applyRatios(dock, dockHolder.getWidth(), dockHolder.getHeight());
+    /** קווי הגרירה שעל המסך — קודם הראשי, ואחריו אלה שבצד הראשון שלו ואלה שבצד השני (לבדיקות) */
+    List<DockSplit> dockSplits() {
+        List<DockSplit> out = new ArrayList<DockSplit>();
+        if (dockHolder.getComponentCount() > 0) collectSplits(dockHolder.getComponent(0), out);
+        return out;
     }
 
-    private void applyRatios(Dock n, int w, int h) {
-        if (n.isLeaf()) return;
-        JSplitPane s = splits.get(splitNodes.indexOf(n));
-        int total = Math.max(0, (n.across ? w : h) - s.getDividerSize());
-        int loc = (int) Math.round(total * n.ratio);
-        s.setResizeWeight(n.ratio);   // שינוי גודל החלון שומר על היחס
-        s.setDividerLocation(loc);
-        applyRatios(n.a, n.across ? loc : w, n.across ? h : loc);
-        applyRatios(n.b, n.across ? total - loc : w, n.across ? h : total - loc);
+    private static void collectSplits(Component c, List<DockSplit> out) {
+        if (!(c instanceof DockSplit)) return;
+        DockSplit s = (DockSplit) c;
+        out.add(s);
+        collectSplits(s.first, out);
+        collectSplits(s.second, out);
+    }
+
+    /** מעבר לצעד p בהרצה (לבדיקות) */
+    void showStep(int p) {
+        showPos(p);
     }
 
     private void saveDock() {
@@ -634,27 +597,6 @@ final class Viewer extends JFrame {
         saveDock();
         buildDock();
         return true;
-    }
-
-    /** הגודל של קו גרירה אחרי שהמשתמש גרר אותו — נשמר, ושינוי גודל החלון שומר על אותו יחס */
-    private void saveSplit(int i) {
-        if (i >= splits.size()) return;
-        JSplitPane s = splits.get(i);
-        int total = (s.getOrientation() == JSplitPane.HORIZONTAL_SPLIT ? s.getWidth() : s.getHeight()) - s.getDividerSize();
-        if (total <= 0 || maximized != null) return;
-        double r = Math.max(0.05, Math.min(0.95, s.getDividerLocation() / (double) total));
-        s.setResizeWeight(r);
-        splitNodes.get(i).ratio = r;
-        saveDock();
-    }
-
-    /** לחיצה כפולה על קו גרירה: חזרה לגודל הרגיל */
-    private void resetSplit(int i) {
-        if (i >= splits.size()) return;
-        Dock n = splitNodes.get(i);
-        n.ratio = n.def;
-        saveDock();
-        applyDockRatios();
     }
 
     /** "פריסה רגילה": כל החלקים במקום ובגודל הרגילים (ואם חלק מוגדל — חוזרים לסידור) */
@@ -797,45 +739,6 @@ final class Viewer extends JFrame {
             g.fillRoundRect(x, y, w, h, h, h);
             g.setColor(fg);
             tl.draw(g, x + 11, y + 5 + tl.getAscent());
-        }
-    }
-
-    /** קו הגרירה עצמו: רקע החלון, שלוש נקודות באמצע; במעבר עכבר / גרירה — קו כחול לכל האורך */
-    private final class Sash extends javax.swing.plaf.basic.BasicSplitPaneDivider {
-        private static final long serialVersionUID = 1L;
-        private boolean hover;
-
-        Sash(javax.swing.plaf.basic.BasicSplitPaneUI ui, final int index) {
-            super(ui);
-            setBorder(null);
-            addMouseListener(new java.awt.event.MouseAdapter() {
-                @Override public void mouseEntered(java.awt.event.MouseEvent e) { hover = true; repaint(); }
-                @Override public void mouseExited(java.awt.event.MouseEvent e) { hover = false; repaint(); }
-                @Override public void mouseReleased(java.awt.event.MouseEvent e) { saveSplit(index); repaint(); }
-                @Override public void mouseClicked(java.awt.event.MouseEvent e) { if (e.getClickCount() == 2) resetSplit(index); }
-            });
-        }
-
-        @Override
-        public void paint(Graphics g0) {
-            Graphics2D g = (Graphics2D) g0.create();
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            int w = getWidth(), h = getHeight();
-            g.setColor(Theme.BG);
-            g.fillRect(0, 0, w, h);
-            boolean across = splitPane.getOrientation() == JSplitPane.HORIZONTAL_SPLIT;   // קו אנכי (בין שמאל לימין)
-            if (hover || dragger != null) {
-                g.setColor(Theme.ACCENT);
-                if (across) g.fillRoundRect(w / 2 - 1, 6, 3, Math.max(0, h - 12), 3, 3);
-                else g.fillRoundRect(6, h / 2 - 1, Math.max(0, w - 12), 3, 3, 3);
-            } else {
-                g.setColor(new Color(0xB4BCC8));
-                for (int i = -1; i <= 1; i++) {
-                    if (across) g.fillOval(w / 2 - 1, h / 2 + i * 6 - 1, 3, 3);
-                    else g.fillOval(w / 2 + i * 6 - 1, h / 2 - 1, 3, 3);
-                }
-            }
-            g.dispose();
         }
     }
 
@@ -1970,7 +1873,8 @@ final class Viewer extends JFrame {
                     BorderFactory.createEmptyBorder(3, 12, 3, 8)));
             JPanel titles = new JPanel(new FlowLayout(FlowLayout.LEADING, 8, 0));
             titles.setOpaque(false);
-            titles.add(new JLabel(new GripIcon()));   // "ידית": רמז שאפשר לגרור את החלק מהכותרת למקום אחר
+            JLabel grip = new JLabel(new GripIcon());   // "ידית": רמז שאפשר לגרור את החלק מהכותרת למקום אחר
+            titles.add(grip);
             // כותרות קטנות — שיתפסו פחות מקום ויישאר יותר לתוכן הכרטיס
             titleLabel = label(title, Theme.title.deriveFont(Theme.title.getSize2D() - 2f), Theme.TEXT);
             titles.add(titleLabel);
@@ -2038,7 +1942,11 @@ final class Viewer extends JFrame {
             body.setBorder(BorderFactory.createEmptyBorder(2, 4, 0, 4));
             body.add(content, BorderLayout.CENTER);
             add(body, BorderLayout.CENTER);
-            setMinimumSize(new Dimension(160, 90));
+            // הגודל הקטן ביותר של חלק (קווי הגרירה לא מכווצים אותו מעבר לזה, כך שהוא לא נעלם). רוחב: הידית, הכותרת (בלי
+            // תת-הכותרת) וכפתור ההגדלה — שהכותרת לא תישבר לשורה שנייה ותיעלם; גובה: הכותרת ועוד שורה-שתיים של תוכן
+            java.awt.Insets hi = head.getInsets();
+            int headW = 2 + hi.left + hi.right + 3 * 8 + grip.getPreferredSize().width + titleLabel.getPreferredSize().width + 10 + end.getPreferredSize().width;
+            setMinimumSize(new Dimension(Math.max(DockSplit.MIN_W, headW), DockSplit.MIN_H));
         }
 
         void setMaximized(boolean m) {
