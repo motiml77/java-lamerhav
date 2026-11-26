@@ -181,7 +181,11 @@ try {
   has(/^GATE-CLOSED true$/m, 'מסך הכניסה נסגר');
   const teacher = (await api('GET', '/v1/admin/teacher?email=' + EMAIL, null, admin)).teacher;
   has(/^PANEL-OPEN true$/m, '"עמדת ניהול" נפתחת שוב');
-  has(new RegExp('^PANEL-TEXT .*' + EMAIL.replace(/[.]/g, '\\.') + '.*' + teacher.code + '.*עמדות מחשב בשימוש: 0 מתוך 3', 'm'), 'עמדת הניהול: המייל, הקוד (כמו בשרת) ו-0 מתוך 3');
+  // סדר הפריטים בחלון לא חשוב (הכרטיס: שם, מייל ועמדות מימין; הקוד משמאל) — כל אחד בשורה של PANEL-TEXT
+  const panelText = (out.match(/^PANEL-TEXT (.*)$/m) || [])[1] || '';
+  assert.ok(panelText.includes(EMAIL) && panelText.includes(' ' + teacher.code + ' ') && panelText.includes('עמדות מחשב בשימוש: 0 מתוך 3'),
+    'עמדת הניהול: המייל, הקוד (כמו בשרת) ו-0 מתוך 3 — ' + panelText);
+  passed++; console.log('✓ עמדת הניהול: המייל, הקוד (כמו בשרת) ו-0 מתוך 3');
   has(/^SIGNOUT-ASK .*להתנתק.*במחשב הזה/m, '"התנתקות" — שואלים בעברית');
   has(/^SIGNOUT-TOLD .*התנתקת/m, 'הודעה אחרי ההתנתקות');
   has(/^SIGNOUT-PANEL-CLOSED true$/m, 'עמדת הניהול נסגרת');
