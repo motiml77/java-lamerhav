@@ -173,8 +173,11 @@ try {
   has(/^TEACHER-PANEL-FRONT active=(true|false) focused=(true|false) visible=true onscreen=true$/m, 'חלון המורה נפתח, נראה ובתוך המסך (הפוקוס עצמו לא נבדק ב-xvfb)');
   has(/^TEACHER-PANEL-COUNT 1$/m, 'לחיצה נוספת לא פותחת עוד חלון');
   has(/^BANK-RTL true /m, 'חלון המאגר מימין לשמאל');
-  has(/^BANK-DIAG rows=9 first=Rectangle \{0, 0, /m, 'המאגר: כל 9 הנושאים מצוירים בתוך הסרגל (לא מחוץ לתצוגה)');
-  has(/^BANK2-DIAG rows=9 first=Rectangle \{0, 0, /m, 'פתיחה שנייה של המאגר (בלי מסך כניסה) — גם כן');
+  // מספר הנושאים — כמו בעץ שהמאגר בנה (BANK-TREE), לא מספר קבוע: נושא חדש במאגר לא שובר את הבדיקה
+  const topics = ((out.match(/^BANK-TREE (.*)$/m) || [])[1] || '').split(' | ').filter(t => t.startsWith('TOPIC ')).length;
+  assert.ok(topics >= 9, 'המאגר: לפחות 9 נושאים בעץ (נמצאו ' + topics + ')');
+  has(new RegExp('^BANK-DIAG rows=' + topics + ' first=Rectangle \\{0, 0, ', 'm'), `המאגר: כל ${topics} הנושאים מצוירים בתוך הסרגל (לא מחוץ לתצוגה)`);
+  has(new RegExp('^BANK2-DIAG rows=' + topics + ' first=Rectangle \\{0, 0, ', 'm'), 'פתיחה שנייה של המאגר (בלי מסך כניסה) — גם כן');
   has(/^GATE-CLOSED true$/m, 'מסך הכניסה נסגר');
   const teacher = (await api('GET', '/v1/admin/teacher?email=' + EMAIL, null, admin)).teacher;
   has(/^PANEL-OPEN true$/m, '"עמדת ניהול" נפתחת שוב');
