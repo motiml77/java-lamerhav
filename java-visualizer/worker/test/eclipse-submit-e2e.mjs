@@ -57,7 +57,7 @@ eclipse = spawn('sh', [join(here, '../../tools/test/eclipse-it/gate.sh')], {
 eclipse.stdout.pipe(log, { end: false });
 eclipse.stderr.pipe(log, { end: false });
 const exited = new Promise(res => eclipse.on('exit', code => res(code)));
-const end = Date.now() + 20 * 60 * 1000;
+const end = Date.now() + (Number(process.env.GATE_WAIT_MIN) || 50) * 60 * 1000;   // כולל בניית ההרחבה ובדיקת כל המאגר (Java ו-C#) — במחשב עמוס יותר מרבע שעה
 while (Date.now() < end && !/^DONE$/m.test(outText())) {
   if (await Promise.race([exited.then(() => true), sleep(1000).then(() => false)])) break;
 }
