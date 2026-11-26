@@ -436,7 +436,15 @@ public class TeacherPanelIt {
         Thread.sleep(300);
         check("רענון הנתונים: הגלילה נשארת במקום (" + sp.getVerticalScrollBar().getValue() + ")", sp.getVerticalScrollBar().getValue() == 400);
         SwingUtilities.invokeAndWait(() -> p.showLists(null, true));
-        check("בלי תשובה מהשרת: הודעה במקום הרשימות, בלי שורות", countIds(p, "student:") == 0 && GateUi.visibleText(p).contains("לא נטענו"));
+        check("בלי תשובה מהשרת: הודעה במקום הרשימות, בלי שורות (שרת שלא מחזיר רשימות בכלל — בלי האזור הזה)", Account.serverHas(false, "panel")
+                ? countIds(p, "student:") == 0 && GateUi.visibleText(p).contains("לא נטענו") : !p.roster.isVisible());
+        // בלי תלמידים משויכים: בגרסה עם מרכז הבקרה הלשונית "תלמידים (0)" מוצגת (עם ההסבר איך מצטרפים); בגרסה הרגילה — רק המחשבים
+        final Map<String, Object> noKids = row("releasesLeft", 3, "stations", st, "students", new java.util.ArrayList<Object>());
+        SwingUtilities.invokeAndWait(() -> p.showLists(new Account.Result("ok", "", noKids), true));
+        Thread.sleep(300);
+        check("בלי תלמידים: הלשונית 'תלמידים' מוצגת רק בגרסה עם מרכז הבקרה, והמחשבים מוצגים", byId(p, "tab-students").isVisible() == Account.CLASSROOM
+                && (Account.CLASSROOM || countIds(p, "station:") == 12));
+        GateUi.shot(p, "panel-2i-no-students");
         openPanel();   // חוזרים לנתונים האמיתיים מהשרת
     }
 
