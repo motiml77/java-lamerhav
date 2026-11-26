@@ -229,6 +229,11 @@ public final class AccessGate {
         t.start();
     }
 
+    /** השורה ליד מספר הגרסה בתחתית החלונות: שם העמדה ומי מחובר ("" — הכניסה כבויה במחשב הזה) */
+    public static String computerLine() {
+        return disabled() ? "" : Account.computerLine();
+    }
+
     /** שורה קצרה למאגר: מי מחובר (או ריק) */
     public static String who() {
         Account.Access a = disabled() ? null : Account.current();
@@ -661,6 +666,7 @@ public final class AccessGate {
     }
 
     private static void notifyListeners() {
+        Account.lineChanged();   // השורה ליד מספר הגרסה (מי מחובר / שם העמדה)
         for (Runnable r : CHANGED) {
             try { r.run(); } catch (RuntimeException ignored) { /* מאזין שנכשל לא עוצר את האחרים */ }
         }

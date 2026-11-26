@@ -124,6 +124,24 @@ public final class Theme {
         try (java.io.OutputStream out = new java.io.FileOutputStream(f)) { p.store(out, "DSViz zoom"); } catch (Exception ignored) { /* לא חשוב */ }
     }
 
+    /** טקסט שנשמר (למשל סידור החלקים בחלון ההרצה) — או null */
+    public static String savedText(String key) {
+        java.util.Properties p = new java.util.Properties();
+        try (java.io.InputStream in = new java.io.FileInputStream(zoomFile())) { p.load(in); } catch (Exception e) { return null; }
+        return p.getProperty(key);
+    }
+
+    /** v == null — מוחקים (חוזרים לברירת המחדל) */
+    public static void saveText(String key, String v) {
+        java.util.Properties p = new java.util.Properties();
+        java.io.File f = zoomFile();
+        try (java.io.InputStream in = new java.io.FileInputStream(f)) { p.load(in); } catch (Exception ignored) { /* חדש */ }
+        if (v == null) p.remove(key);
+        else p.setProperty(key, v);
+        f.getParentFile().mkdirs();
+        try (java.io.OutputStream out = new java.io.FileOutputStream(f)) { p.store(out, "DSViz zoom"); } catch (Exception ignored) { /* לא חשוב */ }
+    }
+
     private static java.io.File zoomFile() {
         return new java.io.File(new java.io.File(System.getProperty("user.home"), ".dsviz"), "zoom.properties");
     }
@@ -134,8 +152,13 @@ public final class Theme {
     public static void install() {
         if (installed) return;
         installed = true;
-        String regular = register("Alef-Regular.ttf");
-        register("Alef-Bold.ttf");   // אותה משפחה, משקל מודגש
+        // Heebo (OFL, Google Fonts): עברית נקייה וספרות ברורות. אם הוא לא נטען — Alef כמו קודם
+        String regular = register("Heebo-Regular.ttf");
+        if (regular != null) register("Heebo-Bold.ttf");   // אותה משפחה, משקל מודגש
+        else {
+            regular = register("Alef-Regular.ttf");
+            register("Alef-Bold.ttf");
+        }
         if (regular != null) family = regular;
         boldFamily = family;
         boldStyle = Font.BOLD;
@@ -238,7 +261,16 @@ public final class Theme {
         return StyleContext.getDefaultStyleContext().getFont(family, style, size);
     }
 
+    /** גופן הקוד שבתוך הספרייה: Chivo Mono (OFL, Google Fonts) — אפס נקי בלי נקודה / קו, שלא נראה כמו 8 בגודל קטן */
+    private static String codeFamily;
+    private static boolean codeTried;
+
     private static Font monoFont(int size) {
+        if (!codeTried) {
+            codeTried = true;
+            codeFamily = register("ChivoMono-Medium.ttf");
+        }
+        if (codeFamily != null) return font(codeFamily, Font.PLAIN, size);
         Set<String> have = new HashSet<String>(Arrays.asList(
                 GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()));
         for (String n : new String[] { "Cascadia Mono", "Cascadia Code", "Consolas", "JetBrains Mono", "SF Mono",

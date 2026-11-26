@@ -1,0 +1,117 @@
+DSVIZ	1	cs
+SRC	Fact.cs	using System;\n\npublic class Program\n{\n    static int Fact(int n)\n    {\n        if (n <= 1) return 1;\n        return n * Fact(n - 1);\n    }\n\n    public static void Main(string[] args)\n    {\n        int x = Fact(5);\n        Console.WriteLine(x);\n    }\n}\n
+CLS	Program		0	0	
+CM	Fact	int	1	s	-	int
+CM	Main		1	s	+	
+STEP	LINE	0	\0	שורה 13:   ‪int x = Fact(5);‬
+FR	Program	Main	Fact.cs	13
+VARS
+STEP	LINE	0	\0	שורה 7:   ‪if (n <= 1) return 1;‬
+FR	Program	Fact	Fact.cs	7
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	5
+STEP	LINE	0	\0	שורה 8:   ‪return n * Fact(n - 1);‬
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	5
+STEP	LINE	0	\0	שורה 7:   ‪if (n <= 1) return 1;‬
+FR	Program	Fact	Fact.cs	7
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	4
+STEP	LINE	0	\0	שורה 8:   ‪return n * Fact(n - 1);‬
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	4
+STEP	LINE	0	\0	שורה 7:   ‪if (n <= 1) return 1;‬
+FR	Program	Fact	Fact.cs	7
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	3
+STEP	LINE	0	\0	שורה 8:   ‪return n * Fact(n - 1);‬
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	3
+STEP	LINE	0	\0	שורה 7:   ‪if (n <= 1) return 1;‬
+FR	Program	Fact	Fact.cs	7
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	2
+STEP	LINE	0	\0	שורה 8:   ‪return n * Fact(n - 1);‬
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	2
+STEP	LINE	0	\0	שורה 7:   ‪if (n <= 1) return 1;‬
+FR	Program	Fact	Fact.cs	7
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	1
+STEP	RETURN	0	1	Fact(1) מחזירה 1
+FR	Program	Fact	Fact.cs	7
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	1
+STEP	RETURN	0	2	Fact(2) מחזירה 2
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	2
+STEP	RETURN	0	6	Fact(3) מחזירה 6
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	3
+STEP	RETURN	0	24	Fact(4) מחזירה 24
+FR	Program	Fact	Fact.cs	8
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	4
+STEP	RETURN	0	120	Fact(5) מחזירה 120
+FR	Program	Fact	Fact.cs	8
+FR	Program	Main	Fact.cs	13
+VARS
+VAR	n	5
+STEP	LINE	0	\0	שורה 14:   ‪Console.WriteLine(x);‬
+FR	Program	Main	Fact.cs	14
+VARS
+VAR	x	120
+OUT	120\n
+STEP	OUTPUT	0	\0	הדפסה: 120
+FR	Program	Main	Fact.cs	14
+VARS
+VAR	x	120
+STEP	END	0	\0	התוכנית הסתיימה
+FR	Program	Main	Fact.cs	15
+VARS
+VAR	x	120

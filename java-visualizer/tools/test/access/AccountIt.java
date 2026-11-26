@@ -38,6 +38,7 @@ public final class AccountIt {
         String code = Json.str(Json.obj(Json.obj(Json.parse(api("GET", "/v1/admin/teacher?email=" + email, admin, null))).get("teacher")).get("code"));
 
         check("בלי כניסה — אין גישה", Account.current() == null);
+        check("ליד מספר הגרסה: 'לא מחובר' (" + line() + ")", "לא מחובר".equals(line()));
         Account.Result bad = Account.claimStation("ABCD-EFGH", "מעבדה");
         check("קוד שגוי — bad-code", "bad-code".equals(bad.status));
         Account.Result r = Account.claimStation(code.toLowerCase().replace("-", " "), "מעבדה 1 · עמדה 1");
@@ -45,6 +46,7 @@ public final class AccountIt {
         Account.Access acc = Account.current();
         check("המאגר פתוח כעמדה", acc != null && acc.isStation() && acc.teacher.equals("מורה בדיקה"));
         check("כותרות ל-Gemini", Account.headers().get("X-DSViz-Access").startsWith("s."));
+        check("ליד מספר הגרסה: שם העמדה והמורה (" + line() + ")", "עמדה: מעבדה 1 · עמדה 1 (המורה: מורה בדיקה)".equals(line()));
 
         // משתמש אחר של Windows באותו מחשב — רואה את העמדה
         use(work, "pc1", "bob");
@@ -71,10 +73,13 @@ public final class AccountIt {
         Account.Result t = Account.signIn("teacher", null, null, 30000);
         check("מורה נכנס דרך הדפדפן (" + t.status + " " + t.message + ")", t.ok());
         check("המאגר פתוח כמורה", Account.current() != null && Account.current().isTeacher());
+        // בכניסת Google של מורה השם בא מ-Google (כאן אין שם — המייל); עמדה מציגה את שם המורה מההנהלה
+        check("ליד מספר הגרסה: 'מחובר כמורה' עם השם או המייל (" + line() + ")", line().equals("מחובר כמורה: " + (Account.current().name.isEmpty() ? email : Account.current().name)));
         check("הקוד של המורה נשמר במחשב (לעמדת הניהול)", Account.teacherCode().replace("-", "").equals(code.replace("-", "")) && !Account.teacherCode().isEmpty());
         check("כתובת עמדת הניהול", Account.managementUrl().endsWith("/account"));
         Account.signOut();
         check("התנתקות — סגור", Account.current() == null);
+        check("ליד מספר הגרסה אחרי ההתנתקות: 'לא מחובר' (" + line() + ")", "לא מחובר".equals(line()));
 
         // תלמיד — בחינם: בפעם הראשונה ההרשמה (שם מלא וטלפון) בדפדפן, לפני החזרה לתוכנה → המאגר פתוח
         String student = "it.student" + System.nanoTime() + "@test.dev";
@@ -121,6 +126,7 @@ public final class AccountIt {
         api("POST", "/v1/admin/student", admin, "{\"email\":\"" + late + "\",\"until\":\"2027-08-31\"}");
         Account.Result after = Account.refresh();
         check("אחרי תשלום / הענקה — refresh פותח (" + after.status + ")", after.ok() && Account.current() != null && Account.current().isStudent());
+        check("ליד מספר הגרסה: 'מחובר כתלמיד/ה' (" + line() + ")", line().startsWith("מחובר כתלמיד/ה: "));
         api("POST", "/v1/admin/settings", admin, "{\"studentsFree\":true}");
         check("חזרה לחינם — נשאר פתוח", Account.refresh().ok() && Account.current() != null);
 
@@ -189,6 +195,12 @@ public final class AccountIt {
         System.setProperty("dsviz.machineDir", new File(work, pc + "/machine").getPath());
         System.setProperty("dsviz.home", new File(work, pc + "/user").getPath());
         Account.resetForTest();
+    }
+
+    /** השורה ליד מספר הגרסה — מחושבת מחדש (בלי השמירה לכמה שניות) */
+    static String line() {
+        Account.lineChanged();
+        return Account.computerLine();
     }
 
     static void check(String name, boolean ok) {

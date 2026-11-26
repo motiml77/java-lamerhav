@@ -31,6 +31,9 @@ cp src/unit4/collectionsLib/*.java "$OUT/src/unit4/collectionsLib/"
 mkdir -p "$OUT/unit4/collectionsLib/fonts" "$OUT/META-INF"
 cp third-party/fonts/*.ttf "$OUT/unit4/collectionsLib/fonts/"
 cp third-party/fonts/OFL-Alef.txt "$OUT/META-INF/LICENSE-Alef-OFL.txt"
+# Heebo (עברית) ו-Chivo Mono (קוד) — OFL, מ-Google Fonts (Theme.install / monoFont)
+cp third-party/fonts/OFL-Heebo.txt "$OUT/META-INF/LICENSE-Heebo-OFL.txt"
+cp third-party/fonts/OFL-ChivoMono.txt "$OUT/META-INF/LICENSE-ChivoMono-OFL.txt"
 # Rubik (OFL) — לחלונות של Visual Studio (Theme.useRounded). מוקטן לעברית, לטינית וסימני פיסוק (fontTools subset), ‎~64KB‎ לכל משקל
 cp third-party/fonts/OFL-Rubik.txt "$OUT/META-INF/LICENSE-Rubik-OFL.txt"
 # התגים "תמכו בפרויקט" (Java / C#) בסרגל של חלון ההרצה — Donate.java
