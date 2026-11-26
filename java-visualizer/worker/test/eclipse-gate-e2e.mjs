@@ -95,7 +95,7 @@ try {
   page.on('pageerror', e => errors.push(String(e)));
 
   await step('Eclipse: הכפתור "מאגר תרגילים" פתח את מסך הכניסה, ו"כניסה עם Google" של המורה פתחה (בקובץ) כתובת כניסה', async () => {
-    const url = await waitFor('url-1.txt (Eclipse עולה, ההרחבה נבנית, החלון נפתח)', () => fileText('url-1.txt'), 15 * 60 * 1000);
+    const url = await waitFor('url-1.txt (Eclipse עולה, ההרחבה נבנית, החלון נפתח)', () => fileText('url-1.txt'), (Number(process.env.GATE_WAIT_MIN) || 45) * 60 * 1000);   // בניית ההרחבה כוללת את בדיקת כל המאגר (Java ו-C#) — במחשב עמוס יותר מרבע שעה
     assert.match(url, /\/signin\?/);
     assert.match(url, /role=teacher/);
     await page.goto(url);
@@ -173,12 +173,19 @@ try {
   has(/^TEACHER-PANEL-FRONT active=(true|false) focused=(true|false) visible=true onscreen=true$/m, 'חלון המורה נפתח, נראה ובתוך המסך (הפוקוס עצמו לא נבדק ב-xvfb)');
   has(/^TEACHER-PANEL-COUNT 1$/m, 'לחיצה נוספת לא פותחת עוד חלון');
   has(/^BANK-RTL true /m, 'חלון המאגר מימין לשמאל');
-  has(/^BANK-DIAG rows=9 first=Rectangle \{0, 0, /m, 'המאגר: כל 9 הנושאים מצוירים בתוך הסרגל (לא מחוץ לתצוגה)');
-  has(/^BANK2-DIAG rows=9 first=Rectangle \{0, 0, /m, 'פתיחה שנייה של המאגר (בלי מסך כניסה) — גם כן');
+  // מספר הנושאים — כמו בעץ שהמאגר בנה (BANK-TREE), לא מספר קבוע: נושא חדש במאגר לא שובר את הבדיקה
+  const topics = ((out.match(/^BANK-TREE (.*)$/m) || [])[1] || '').split(' | ').filter(t => t.startsWith('TOPIC ')).length;
+  assert.ok(topics >= 9, 'המאגר: לפחות 9 נושאים בעץ (נמצאו ' + topics + ')');
+  has(new RegExp('^BANK-DIAG rows=' + topics + ' first=Rectangle \\{0, 0, ', 'm'), `המאגר: כל ${topics} הנושאים מצוירים בתוך הסרגל (לא מחוץ לתצוגה)`);
+  has(new RegExp('^BANK2-DIAG rows=' + topics + ' first=Rectangle \\{0, 0, ', 'm'), 'פתיחה שנייה של המאגר (בלי מסך כניסה) — גם כן');
   has(/^GATE-CLOSED true$/m, 'מסך הכניסה נסגר');
   const teacher = (await api('GET', '/v1/admin/teacher?email=' + EMAIL, null, admin)).teacher;
   has(/^PANEL-OPEN true$/m, '"עמדת ניהול" נפתחת שוב');
-  has(new RegExp('^PANEL-TEXT .*' + EMAIL.replace(/[.]/g, '\\.') + '.*' + teacher.code + '.*עמדות מחשב בשימוש: 0 מתוך 3', 'm'), 'עמדת הניהול: המייל, הקוד (כמו בשרת) ו-0 מתוך 3');
+  // סדר הפריטים בחלון לא חשוב (הכרטיס: שם, מייל ועמדות מימין; הקוד משמאל) — כל אחד בשורה של PANEL-TEXT
+  const panelText = (out.match(/^PANEL-TEXT (.*)$/m) || [])[1] || '';
+  assert.ok(panelText.includes(EMAIL) && panelText.includes(' ' + teacher.code + ' ') && panelText.includes('עמדות מחשב בשימוש: 0 מתוך 3'),
+    'עמדת הניהול: המייל, הקוד (כמו בשרת) ו-0 מתוך 3 — ' + panelText);
+  passed++; console.log('✓ עמדת הניהול: המייל, הקוד (כמו בשרת) ו-0 מתוך 3');
   has(/^SIGNOUT-ASK .*להתנתק.*במחשב הזה/m, '"התנתקות" — שואלים בעברית');
   has(/^SIGNOUT-TOLD .*התנתקת/m, 'הודעה אחרי ההתנתקות');
   has(/^SIGNOUT-PANEL-CLOSED true$/m, 'עמדת הניהול נסגרת');
