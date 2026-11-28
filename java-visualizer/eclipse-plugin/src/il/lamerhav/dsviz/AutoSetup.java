@@ -40,6 +40,7 @@ public class AutoSetup implements IStartup {
     public void earlyStartup() {
         AnswerHighlight.start();   // "כאן עונים": הגוף של פעולה שעוד לא נכתבה בה תשובה — מסומן בצהוב בעורך
         try { if (Reports.pendingCount() > 0) Reports.flushAsync(); } catch (Throwable ignored) { }   // דיווחים על בעיות שנשמרו כשלא היה אינטרנט
+        try { Submit.flushAsync(); } catch (Throwable ignored) { }   // הגשות למורה שנשמרו כשלא היה אינטרנט — ברקע, בלי לעכב את Eclipse
         // Windows + מקלדת עברית: ההקלדה בעורך לא מתחלפת לעברית לבד (ריחוף מעל הסבר בעברית, סמן ליד הערה בעברית) — KeyboardGuard
         Display.getDefault().asyncExec(() -> KeyboardGuard.install(Display.getDefault()));
         WorkspaceJob job = new WorkspaceJob("מבני נתונים — הכנת סביבת העבודה") {

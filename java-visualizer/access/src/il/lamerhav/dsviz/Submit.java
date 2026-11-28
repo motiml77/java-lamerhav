@@ -10,19 +10,25 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * "הגשה למורה": שולחים למורה את קובצי התרגיל (POST /v1/submit) — מתלמיד שמשויך למורה (הצטרף בקוד המורה), או מעמדת מחשב
  * של הכיתה (אז חובה "שם המגיש", כי אותו מחשב משמש כמה תלמידים). למי זה מגיע קובע השרת, לפי כרטיס הכניסה של המחשב —
  * לא לפי מה שהמחשב שולח. תלמיד עצמאי, מורה, ומחשב לא מחובר — אין למי להגיש (mode() ריק, והכפתור לא מוצג).
  *
- * בלי אינטרנט ההגשה נשמרת במחשב (תיבת יוצא, ליד קובצי הכניסה — לא נמחקת בעדכון גרסה) ונשלחת בפעם הבאה שיש חיבור
- * (flushAsync — בפתיחת המאגר, ואחרי כל הגשה). הגשה שמורה נשלחת רק בשם מי שהגיש אותה: אם בינתיים התחבר במחשב מישהו אחר,
- * היא מחכה; אחרי KEEP_DAYS ימים היא נמחקת.
+ * בלי אינטרנט ההגשה נשמרת במחשב (תיבת יוצא, ליד קובצי הכניסה — לא נמחקת בעדכון גרסה; עד MAX_QUEUE, KEEP_DAYS ימים) ונשלחת
+ * לבד, בלי שהתלמיד עושה עוד משהו — flushAsync (ברקע, אף פעם לא חוסם חלון) נקרא: כשהתוכנה / הסביבה נפתחת (UpdateCheck.start,
+ * ובתוסף של Eclipse — AutoSetup), כשנפתח חלון המאגר, כשנפתח חלון השאלה, ואחרי כל הגשה; ובנוסף, כל עוד משהו מחכה, חוט רקע אחד
+ * לתהליך מנסה שוב כל retryMs() (כ-2 דקות; dsviz.submitRetryMs — לבדיקות) ונעצר כשתיבת היוצא ריקה. הגשה שמורה נשלחת רק בשם מי
+ * שהגיש אותה: אם בינתיים התחבר במחשב מישהו אחר (או אף אחד), היא מחכה. כשהגשה שמורה נשלחה — onSent מודיע (חלון השאלה וההתקדמות
+ * במאגר מורידים את "נשמרה במחשב" ומציגים "הוגש למורה"); waitingIds — אילו שאלות עוד מחכות.
  */
 public final class Submit {
     private Submit() { }
@@ -222,6 +228,7 @@ public final class Submit {
                 Files.move(tmp.toPath(), new File(dir, id + ".json").toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
                 List<File> all = pending(dir);
                 for (int i = 0; i < all.size() - MAX_QUEUE; i++) all.get(i).delete();   // הכי ישנות
+                retryLater();   // מנסים שוב לבד, כל עוד היא מחכה
                 return true;
             } catch (IOException | RuntimeException e) {
                 return false;
@@ -232,6 +239,7 @@ public final class Submit {
     /** שולח את מה שמחכה (חוסם). מחזיר כמה נשלחו */
     static int flush() {
         int sent = 0;
+        List<Map<String, Object>> done = new ArrayList<Map<String, Object>>();
         synchronized (LOCAL) {
             File dir = outbox();
             for (File f : pending(dir)) {
@@ -249,9 +257,15 @@ public final class Submit {
                 String now = identity(mode);
                 if (now.isEmpty() || !now.equals(Json.str(q.get("by")))) continue;   // עכשיו מחובר מישהו אחר (או אף אחד) — ההגשה מחכה למי שהגיש אותה
                 Account.Result r = Account.post("/v1/submit", Json.obj(q.get("body")), Account.headersOf("station".equals(mode)));
-                if (r.ok()) { f.delete(); sent++; continue; }
+                if (r.ok()) { f.delete(); sent++; done.add(Json.obj(Json.obj(q.get("body")).get("exercise"))); continue; }
                 if ("offline".equals(r.status) || "rate".equals(r.status) || "error".equals(r.status)) break;   // ננסה בפעם הבאה
                 f.delete();   // השרת דחה (who / files / no-teacher / login …) — לא יעבור גם בפעם הבאה
+            }
+        }
+        // מודיעים אחרי שתיבת היוצא שוחררה (מי שמקשיב יכול לשאול waitingIds בלי לחכות)
+        for (Map<String, Object> ex : done) {
+            for (Sent l : SENT) {
+                try { l.sent(ex); } catch (RuntimeException ignored) { /* מאזין שנכשל לא עוצר את האחרים */ }
             }
         }
         return sent;
@@ -259,14 +273,111 @@ public final class Submit {
 
     private static volatile boolean flushing;
 
-    /** שולח ברקע את מה שמחכה (בפתיחת המאגר, ואחרי הגשה) */
+    /**
+     * שולח ברקע את מה שמחכה — כשהתוכנה נפתחת, כשנפתחים חלון המאגר / חלון השאלה, ואחרי הגשה. לא חוסם; אם משהו נשאר (אין
+     * אינטרנט / מחובר מישהו אחר) — חוט הרקע ממשיך לנסות
+     */
     public static void flushAsync() {
         if (flushing || waiting() == 0) return;
         flushing = true;
         Thread t = new Thread(() -> {
-            try { flush(); } catch (Throwable ignored) { /* בפעם הבאה */ } finally { flushing = false; }
+            try { flush(); } catch (Throwable ignored) { /* בפעם הבאה */ } finally {
+                flushing = false;
+                if (waiting() > 0) retryLater();
+            }
         }, "dsviz-submit-flush");
         t.setDaemon(true);
         t.start();
+    }
+
+    // ------------------------------------------------------------------ ניסיון חוזר ברקע
+
+    private static Thread retry;
+
+    /** כל כמה זמן מנסים שוב כשמשהו מחכה (dsviz.submitRetryMs; ברירת מחדל — 2 דקות) */
+    static long retryMs() {
+        try {
+            return Math.max(200L, Long.parseLong(System.getProperty("dsviz.submitRetryMs", "120000").trim()));
+        } catch (NumberFormatException e) {
+            return 120000L;
+        }
+    }
+
+    /** חוט רקע אחד לתהליך: כל retryMs() שולח את מה שמחכה, ונעצר כשתיבת היוצא ריקה */
+    static void retryLater() {
+        synchronized (Submit.class) {
+            if (retry != null) return;
+            retry = new Thread(Submit::retryLoop, "dsviz-submit-retry");
+            retry.setDaemon(true);
+            retry.start();
+        }
+    }
+
+    /** לבדיקות: חוט הרקע פעיל */
+    static boolean retrying() {
+        synchronized (Submit.class) {
+            return retry != null;
+        }
+    }
+
+    private static void retryLoop() {
+        try {
+            while (true) {
+                long start = System.currentTimeMillis();
+                // במנות קטנות: נעצר מיד כשתיבת היוצא התרוקנה (נשלחה מסיבה אחרת), ושינוי של dsviz.submitRetryMs (בבדיקות) נכנס מיד
+                while (System.currentTimeMillis() - start < retryMs()) {
+                    Thread.sleep(Math.min(500L, retryMs()));
+                    if (stopIfEmpty()) return;
+                }
+                try { flush(); } catch (Throwable ignored) { /* בפעם הבאה */ }
+                if (stopIfEmpty()) return;
+            }
+        } catch (InterruptedException e) {
+            synchronized (Submit.class) { retry = null; }
+        }
+    }
+
+    private static boolean stopIfEmpty() {
+        synchronized (Submit.class) {
+            if (waiting() > 0) return false;
+            retry = null;
+            return true;
+        }
+    }
+
+    // ------------------------------------------------------------------ מה נשלח / מה מחכה
+
+    /** הגשה שחיכתה בתיבת היוצא נשלחה עכשיו. exercise — מה שהוגש (source, bankId, topic, title, level). נקרא בחוט של השליחה */
+    public interface Sent {
+        void sent(Map<String, Object> exercise);
+    }
+
+    private static final List<Sent> SENT = new CopyOnWriteArrayList<Sent>();
+
+    public static void onSent(Sent l) {
+        if (l != null && !SENT.contains(l)) SENT.add(l);
+    }
+
+    public static void offSent(Sent l) {
+        SENT.remove(l);
+    }
+
+    /** מזהי השאלות במאגר שההגשה שלהן עדיין מחכה בתיבת היוצא (של כל מי שהגיש מהמחשב הזה). קורא רק את הקבצים — לא חוסם */
+    public static Set<String> waitingIds() {
+        Set<String> out = new LinkedHashSet<String>();
+        for (File f : pending(outbox())) {
+            try {
+                Map<String, Object> q = Json.obj(Json.parse(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8)));
+                String id = Json.str(Json.obj(Json.obj(q.get("body")).get("exercise")).get("bankId"));
+                if (!id.isEmpty()) out.add(id);
+            } catch (IOException | RuntimeException e) {
+                // נשלח / נמחק בדיוק עכשיו — לא מחכה
+            }
+        }
+        return out;
+    }
+
+    public static boolean waitingFor(String bankId) {
+        return bankId != null && !bankId.isEmpty() && waitingIds().contains(bankId);
     }
 }

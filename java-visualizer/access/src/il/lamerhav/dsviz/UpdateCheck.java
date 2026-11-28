@@ -20,6 +20,7 @@ public final class UpdateCheck {
         if (started && !"-AfterEclipse".equals(flag)) return;   // פעם אחת לכל תהליך
         started = true;
         try { if (Reports.pendingCount() > 0) Reports.flushAsync(); } catch (Throwable ignored) { }   // דיווחים שנשמרו כשלא היה אינטרנט
+        try { Submit.flushAsync(); } catch (Throwable ignored) { }   // הגשות למורה שנשמרו כשלא היה אינטרנט — ברקע (ואם עדיין אין: ניסיון חוזר)
         try {
             if (!System.getProperty("os.name", "").toLowerCase().contains("win")) return;
             String dir = installDir();
