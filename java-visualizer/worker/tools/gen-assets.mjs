@@ -38,6 +38,9 @@ try {
     }
   }
   out['/bank-preview.json'] = JSON.stringify(preview);
+  // הנושאים (מזהה ושם בעברית, בסדר של המאגר) — לשיעורי בית: הבחירה של המורה לפי נושא, והנושא של כל שאלה אצל התלמיד
+  const topics = JSON.parse(readFileSync(join(bankDir, 'topics.json'), 'utf8')).topics || [];
+  out['/bank-topics.json'] = JSON.stringify({ topics: topics.map(t => ({ id: t.id, title: t.title })) });
 } catch (e) {
   console.log('bank-preview: ' + e.message);
 }

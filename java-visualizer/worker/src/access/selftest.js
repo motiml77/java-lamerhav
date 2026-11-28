@@ -26,6 +26,7 @@ const QUERIES = [
   ['submissions', { where: [['teacher', '==', '-'], ['student', '==', '-']], limit: 1 }],
   ['submissions', { where: [['teacher', '==', '-'], ['station', '==', '-']] }],
   ['submissions', { where: [['expiresAt', '<', new Date(0)]], limit: 1 }],
+  ['homework', { where: [['teacher', '==', '-']] }],
   ['sessions', { where: [['email', '==', '-']] }],
   ['requests', { where: [['email', '==', '-']] }],
   ['requests', { where: [['status', '==', '-']] }],

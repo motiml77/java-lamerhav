@@ -368,6 +368,104 @@ await test('כיתות: יצירה, שם כפול נדחה, שינוי שם, ה�
   assert.equal(c.body.students.find(x => x.email === 'noam@test.dev').classId, classA);
 });
 
+// ------------------------------------------------------------------ שיעורי בית
+const FSDOCS = `http://${FS}/v1/projects/${PROJECT}/databases/(default)/documents`;
+const rawDoc = async path => (await (await realFetch(`${FSDOCS}/${path}`, { headers: { authorization: 'Bearer owner' } })).json());
+const hwSave = (token, body) => call('POST', '/v1/me/homework', { token, body: Object.assign({ op: 'save' }, body) });
+let hwA, hwAll;
+await test('שיעורי בית: המורה נותן לכיתה / לכל התלמידים — נשמרים רק המזהים; שאלה שלא במאגר, יותר מ-10, תאריך לא תקין, כיתה של מורה אחר — נדחים', async () => {
+  assert.equal((await hwSave(sara, { items: [] })).status, 400);
+  const unknown = await hwSave(sara, { items: ['queue-sum-even', 'no-such-question'] });
+  assert.equal(unknown.status, 400);
+  assert.match(unknown.body.error, /לא נמצאה במאגר: no-such-question/);
+  const eleven = ['queue-sum-even', 'stack-sum-size', 'tree-count-sum', 'list-evens-remove', 'queue-two-sum', 'stack-brackets', 'tree-path-sum', 'arrays-counters', 'loops-collatz', 'strings-anagram', 'recursion-digits'];
+  assert.equal((await hwSave(sara, { items: eleven })).body.code, 'items', 'עד 10 שאלות');
+  assert.equal((await hwSave(sara, { items: ['queue-sum-even'], due: '2026-02-30' })).body.code, 'due');
+  assert.equal((await hwSave(sara, { items: ['queue-sum-even'], due: '3.12' })).body.code, 'due');
+  assert.equal((await hwSave(david, { items: ['queue-sum-even'], classId: classA })).status, 404, 'כיתה של מורה אחר');
+  assert.equal((await call('POST', '/v1/me/homework', { token: await idToken('noam@test.dev'), body: { op: 'save', items: ['queue-sum-even'] } })).status, 403, 'תלמיד');
+  const a = await hwSave(sara, { classId: classA, items: ['queue-sum-even', 'stack-sum-size', 'queue-sum-even'], title: '  חזרה   על תור ', due: '2026-12-03' });
+  assert.equal(a.status, 200, JSON.stringify(a.body));
+  hwA = a.body.id;
+  const all = await hwSave(sara, { items: ['tree-count-sum'] });
+  assert.equal(all.status, 200, JSON.stringify(all.body));
+  hwAll = all.body.id;
+  // במסמך: רק המזהים (בלי שמות / נוסח / מה הוגש)
+  const doc = await rawDoc('homework/' + hwA);
+  assert.deepEqual(Object.keys(doc.fields).sort(), ['classId', 'createdAt', 'due', 'items', 'teacher', 'title', 'updatedAt']);
+  assert.deepEqual(doc.fields.items.arrayValue.values.map(v => v.stringValue), ['queue-sum-even', 'stack-sum-size'], 'בלי כפילות');
+  const c = await call('GET', '/v1/me/console', { token: sara });
+  assert.deepEqual(c.body.homework.map(h => h.id), [hwAll, hwA], 'מהחדש לישן');
+  const h = c.body.homework.find(x => x.id === hwA);
+  assert.deepEqual({ title: h.title, classId: h.classId, items: h.items, due: h.due }, { title: 'חזרה על תור', classId: classA, items: ['queue-sum-even', 'stack-sum-size'], due: '2026-12-03' });
+  assert.ok(h.createdAt);
+  assert.deepEqual(Object.keys(h).sort(), ['classId', 'createdAt', 'due', 'id', 'items', 'title']);
+  assert.equal(c.body.homework.find(x => x.id === hwAll).classId, '');
+  assert.equal((await call('GET', '/v1/me/console', { token: david })).body.homework.length, 0, 'בידוד: מורה אחר לא רואה');
+});
+
+await test('שיעורי בית אצל התלמיד (/v1/student/work): של המורה שלו, לכולם או לכיתה שלו; שאלה שהוגשה (גם לפני), מתי והציון; השדות הקודמים בלי שינוי', async () => {
+  const sub = (await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions.find(x => x.exercise.bankId === 'queue-sum-even');
+  await call('POST', '/v1/me/submission/grade', { token: sara, body: { id: sub.id, grade: 92 } });
+  const r = await call('POST', '/v1/student/work', { headers: plugin(noam), body: {} });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.ok(Array.isArray(r.body.work) && r.body.teacher.name === 'שרה כהן', 'השדות הקודמים נשארו');
+  assert.deepEqual(r.body.homework.map(x => x.id), [hwAll, hwA], 'כיתה יא 3 + לכל התלמידים, מהחדש לישן');
+  const a = r.body.homework[1];
+  assert.equal(a.title, 'חזרה על תור');
+  assert.equal(a.due, '2026-12-03');
+  assert.deepEqual(a.items.map(x => [x.bankId, x.title, x.topic, x.level, x.done, x.grade]),
+    [['queue-sum-even', 'סכום תור וזוגיים', 'תור', 'קל', true, 92], ['stack-sum-size', 'סכום וגודל של מחסנית', 'מחסנית', 'קל', false, null]]);
+  assert.ok(a.items[0].at && a.items[1].at === '', 'מתי הוגש');
+  assert.match(r.body.homework[0].title, /^שיעורי בית \d{1,2}\.\d{1,2}$/, 'בלי כותרת — "שיעורי בית <d.M>"');
+  assert.equal(r.body.homework[0].due, '');
+  // כיתה אחרת: רק מה שלכל התלמידים
+  const other = (await call('POST', '/v1/student/work', { headers: plugin(ariel), body: {} })).body;
+  assert.deepEqual(other.homework.map(x => x.id), [hwAll]);
+  // התלמיד מגיש — מסומן "הוגש" בתשובה הבאה
+  await call('POST', '/v1/submit', { headers: plugin(noam), body: bankSubmit({ exercise: { source: 'bank', bankId: 'stack-sum-size', topic: 'מחסנית', title: 'סכום וגודל של מחסנית', level: 'קל' } }) });
+  const after = (await call('POST', '/v1/student/work', { headers: plugin(noam), body: {} })).body.homework.find(x => x.id === hwA);
+  assert.deepEqual(after.items.map(x => x.done), [true, true]);
+  // מהדף בדפדפן — אותה תשובה
+  assert.deepEqual((await call('GET', '/v1/student/work', { token: await idToken('noam@test.dev') })).body.homework.map(x => x.id), [hwAll, hwA]);
+  // תלמיד עצמאי — כלום; עמדת מחשב — לא תלמיד (403, כמו קודם)
+  const solo = await signInPlugin('solo.hw@test.dev', 'student', 'עצמאי');
+  await call('POST', '/v1/student/mode', { headers: plugin(solo), body: { mode: 'independent' } });
+  assert.deepEqual((await call('POST', '/v1/student/work', { headers: plugin(solo), body: {} })).body.homework, []);
+  assert.equal((await call('POST', '/v1/student/work', { headers: plugin(station), body: {} })).status, 403);
+});
+
+await test('שיעורי בית: עריכה ומחיקה — רק המורה שנתן; המחיקה לא נוגעת בהגשות ובציונים; עד 60 בכל פעם', async () => {
+  assert.equal((await hwSave(david, { id: hwA, items: ['tree-count-sum'] })).status, 404, 'מורה אחר לא עורך');
+  assert.equal((await call('POST', '/v1/me/homework', { token: david, body: { op: 'delete', id: hwA } })).status, 404, 'מורה אחר לא מוחק');
+  const e = await hwSave(sara, { id: hwA, classId: classA, items: ['stack-sum-size', 'list-evens-remove'], title: '', due: '' });
+  assert.equal(e.status, 200, JSON.stringify(e.body));
+  let h = (await call('GET', '/v1/me/console', { token: sara })).body.homework.find(x => x.id === hwA);
+  assert.deepEqual({ items: h.items, title: h.title, due: h.due }, { items: ['stack-sum-size', 'list-evens-remove'], title: '', due: '' });
+  const before = (await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions.length;
+  assert.equal((await call('POST', '/v1/me/homework', { token: sara, body: { op: 'delete', id: hwAll } })).status, 200);
+  const c = await call('GET', '/v1/me/console', { token: sara });
+  assert.deepEqual(c.body.homework.map(x => x.id), [hwA]);
+  assert.equal((await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions.length, before, 'ההגשות נשארו');
+  assert.equal(c.body.students.find(x => x.email === 'noam@test.dev').work.find(w => w.bankId === 'queue-sum-even').grade, 92, 'הציון נשאר');
+  assert.deepEqual((await call('POST', '/v1/student/work', { headers: plugin(noam), body: {} })).body.homework.map(x => x.id), [hwA]);
+  assert.equal((await call('POST', '/v1/me/homework', { token: sara, body: { op: 'delete', id: hwAll } })).status, 404, 'כבר נמחקו');
+  // עד 60: 59 נוספים ישירות באמולטור (מהר), השישים ואחד נדחה עם הסבר
+  const writes = [];
+  for (let i = 0; i < 59; i++) {
+    writes.push({ update: { name: `projects/${PROJECT}/databases/(default)/documents/homework/filler${i}`, fields: { teacher: { stringValue: 'sara@test.dev' }, classId: { stringValue: '' }, items: { arrayValue: { values: [{ stringValue: 'tree-count-sum' }] } }, title: { stringValue: '' }, due: { stringValue: '' }, createdAt: { stringValue: '2026-01-01T00:00:00.000Z' } } } });
+  }
+  const res = await realFetch(FSDOCS + ':commit', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ writes }) });
+  assert.equal(res.status, 200, await res.text());
+  const over = await hwSave(sara, { items: ['tree-count-sum'] });
+  assert.equal(over.status, 400);
+  assert.equal(over.body.code, 'limit');
+  assert.match(over.body.error, /עד 60 שיעורי בית/);
+  const del = writes.map(w => ({ delete: w.update.name }));
+  assert.equal((await realFetch(FSDOCS + ':commit', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ writes: del }) })).status, 200);
+  assert.equal((await hwSave(sara, { items: ['tree-count-sum'] })).status, 200, 'אחרי מחיקה — אפשר שוב');
+});
+
 await test('בידוד: מורה אחר לא רואה, לא פותח ולא מוחק את הנתונים של שרה; תלמיד לא נכנס לעמדת הניהול', async () => {
   const sid = (await call('GET', '/v1/me/submissions?student=noam@test.dev', { token: sara })).body.submissions[0].id;
   assert.equal((await call('GET', '/v1/me/submission?id=' + sid, { token: david })).status, 404);
@@ -722,8 +820,14 @@ await test('כיתה גדולה (30 תלמידים, 60 הגשות): המחיקה
     for (const q of ['a', 'b']) assert.equal((await call('POST', '/v1/submit', { headers: plugin(tok), body: bankSubmit({ exercise: { source: 'bank', bankId: 'big-' + q, title: 'תרגיל ' + q } }) })).status, 200);
     emails.push(email);
   }
+  // שיעורי בית לכיתה (נמחקים איתה) ולכל התלמידים (נשארים)
+  const hwBig = (await hwSave(sara, { classId: cls, items: ['queue-sum-even', 'stack-sum-size'] })).body.id;
+  const hwBig2 = (await hwSave(sara, { classId: cls, items: ['tree-count-sum'], due: '2026-12-01' })).body.id;
+  const hwKeep = (await hwSave(sara, { items: ['queue-two-sum'] })).body.id;
+  assert.ok(hwBig && hwBig2 && hwKeep);
   const before = (await call('GET', '/v1/me/console', { token: sara })).body;
   assert.equal(before.students.filter(x => x.classId === cls).length, 30);
+  assert.ok(before.homework.some(h => h.id === hwBig));
   let r, steps = 0, most = 0;
   do {
     r = await call('POST', '/v1/me/class', { token: sara, body: { op: 'delete', id: cls, confirm: 'שכבה גדולה' } });
@@ -736,6 +840,8 @@ await test('כיתה גדולה (30 תלמידים, 60 הגשות): המחיקה
   const after = (await call('GET', '/v1/me/console', { token: sara })).body;
   assert.ok(!after.classes.some(x => x.id === cls));
   assert.ok(!after.students.some(x => emails.includes(x.email)));
+  assert.ok(!after.homework.some(h => h.id === hwBig || h.id === hwBig2), 'שיעורי הבית של הכיתה נמחקו איתה');
+  assert.ok(after.homework.some(h => h.id === hwKeep), 'שיעורי בית לכל התלמידים — נשארים');
   for (const e of [emails[0], emails[17], emails[29]]) assert.equal((await call('GET', '/v1/me/submissions?student=' + e, { token: sara })).body.submissions.length, 0);
   // המונה של המורה (תלמידים) ירד בחזרה
   const t = (await call('GET', '/v1/admin/teacher?email=sara@test.dev', { token: admin })).body.teacher;

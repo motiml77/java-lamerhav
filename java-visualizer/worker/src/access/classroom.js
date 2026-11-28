@@ -8,6 +8,10 @@
 //             עד חצות של אותו יום, שעון ישראל (expiresAt: מדיניות TTL ב-Firestore, ובנוסף נמחקת כשקוראים את הרשימה).
 //   • כיתות  — של המורה בלבד; שינוי שם בכל זמן; מחיקה מוחקת את התלמידים שבה ואת כל ההגשות שלהם (בשלבים, עד 400 מסמכים בכל קריאה).
 //   • שחרור עמדה — המורה לבד, עד settings.teacherReleases בחודש; מעבר לזה — בקשה להנהלה (כמו קודם).
+//   • שיעורי בית — המורה בוחר 1–10 שאלות מהמאגר לכל התלמידים שלו או לכיתה אחת (לא לעמדות). נשמרים רק המזהים; מה הוגש לא נשמר
+//             כאן: עמדת הניהול והתוסף מחברים את השאלות לתקציר של כל תלמיד (members.work, לפי b — מזהה השאלה במאגר). שאלה שהתלמיד
+//             הגיש עוד לפני שיעורי הבית נחשבת כהוגשה. "באיחור" — הוגש אחרי סוף יום ההגשה (שעון ישראל). מחיקה של שיעורי בית לא
+//             נוגעת בהגשות ובציונים; מחיקת כיתה מוחקת גם את שיעורי הבית שלה. עד HW_MAX בכל פעם למורה.
 //
 // המסמכים:
 //   classes/{id}                 teacher, name, createdAt, updatedAt
@@ -19,9 +23,13 @@
 //                                grade (0–100 או null), gradedAt, gradedN (מספר ההגשה שקיבלה את הציון) — רק להגשה של תלמיד
 //   submissionFiles/{id}         teacher, files[{path, text}], main, expiresAt — הקוד עצמו, נקרא רק כשהמורה פותח הגשה
 //   students/{email}             + mode, teacher, joinedAt; ההרשמה: fullName, phone, registeredAt (שם מלא וטלפון — פעם אחת, בדפדפן)
+//   homework/{id}                teacher, classId ('' = כל התלמידים של המורה), items [מזהי שאלות במאגר, 1–10 — נבדקים מול העותק של המאגר
+//                                שבשרת, bank-preview.json], title (לא חובה, עד 40 תווים; בלי — "שיעורי בית <d.M>" לפי createdAt),
+//                                due ('' או YYYY-MM-DD — עד סוף היום, שעון ישראל), createdAt, updatedAt
 
 import { Fail } from '../http.js';
 import { db, timeId } from './firestore.js';
+import { ASSETS } from './assets.gen.js';
 import { sha256Hex, normalizeCode } from './crypto.js';
 import { webUser, readJson, log, settings, resolveToken, badCodeLimit, phoneNorm } from './index.js';
 import { WAIT } from './alerts.js';
@@ -39,6 +47,7 @@ const MAX_WORK = 200;              // כמה תרגילים נשמרים בתק�
 // Cloudflare (התוכנית החינמית): עד 50 פניות החוצה בבקשה אחת. מחיקת כיתה נעשית בשלבים — בכל קריאה עד כמה תלמידים
 // (שאילתה + כתיבה לכל תלמיד), והדף ממשיך לקרוא עד done
 const CLASS_DELETE_STEP = 12;
+const HW_MAX = 60, HW_ITEMS = 10;   // שיעורי בית: כמה בכל פעם למורה, וכמה שאלות בכל אחד
 
 // ------------------------------------------------------------------ מי פונה
 
@@ -227,6 +236,11 @@ async function leaveTeacher(store, student, teacher, why) {
  * עם הציון שהמורה נתן (myWork)
  */
 export async function studentState(env, email, withWork) {
+  return (await studentInfo(env, email, withWork)).out;
+}
+
+/** כמו studentState, ובנוסף המסמך ב-members של המורה הנוכחי (null — לא משויך) — לשיעורי הבית */
+async function studentInfo(env, email, withWork) {
   const store = db(env);
   const st = await store.get('students/' + email);
   const mode = st && st.mode || '';
@@ -237,7 +251,7 @@ export async function studentState(env, email, withWork) {
   }
   const out = { mode: teacher ? 'teacher' : (mode === 'teacher' ? '' : mode), teacher, registered: isRegistered(st), fullName: st && st.fullName || '' };
   if (withWork) out.work = myWork(member);
-  return out;
+  return { out, member, teacherEmail: teacher ? st.teacher : '' };
 }
 
 /**
@@ -481,11 +495,12 @@ async function consoleData(request, env) {
   const u = await teacherUser(request, env);
   const store = db(env);
   const t = u.teacher;
-  const [classes, members, stations, stationSubs] = await Promise.all([
+  const [classes, members, stations, stationSubs, homework] = await Promise.all([
     store.query('classes', { where: [['teacher', '==', u.email]] }),
     store.query('members', { where: [['teacher', '==', u.email]] }),
     store.query('stations', { where: [['teacher', '==', u.email]] }),
     store.query('submissions', { where: [['teacher', '==', u.email], ['from', '==', 'station']] }),
+    store.query('homework', { where: [['teacher', '==', u.email]] }),
   ]);
   const live = await dropExpired(store, stationSubs);
   purgeLater(env);
@@ -510,6 +525,9 @@ async function consoleData(request, env) {
       const subs = (byStation.get(x._id) || []).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
       return { id: x._id, name: x.name, lastSeen: x.lastSeen, client: x.client || '', claimedAt: x.claimedAt, pending: subs.length, unseen: subs.filter(y => !y.seenAt).length };
     }).sort((a, b) => collator.compare(a.name, b.name)),
+    // שיעורי הבית, מהחדש לישן — מה הוגש הדף מחשב בעצמו מהתקציר של כל תלמיד (work, לפי bankId)
+    homework: homework.map(h => ({ id: h._id, title: h.title || '', classId: h.classId || '', items: Array.isArray(h.items) ? h.items : [], due: h.due || '', createdAt: h.createdAt || '' }))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))),
   };
 }
 
@@ -682,8 +700,13 @@ async function classOp(request, env) {
       if (budget <= 20) break;
     }
     if (removed < members.length) return { ok: true, done: false, left: members.length - removed };
-    await store.remove('classes/' + c._id);
-    await log(store, u.email, 'class.delete', c.name, 'הכיתה נמחקה עם התלמידים וההגשות שלהם');
+    // הכיתה, ואיתה (באותה כתיבה) שיעורי הבית שניתנו לה — פנייה אחת נוספת (השאילתה), בתוך מגבלת הפניות
+    const homework = (await store.query('homework', { where: [['teacher', '==', u.email]] })).filter(h => h.classId === c._id);
+    await store.commit(w => {
+      for (const h of homework) w.remove('homework/' + h._id);
+      w.remove('classes/' + c._id);
+    });
+    await log(store, u.email, 'class.delete', c.name, 'הכיתה נמחקה עם התלמידים וההגשות שלהם' + (homework.length ? ` ועם ${homework.length} שיעורי בית` : ''));
     return { ok: true, done: true, removed };
   }
   throw new Fail(400, 'format', 'פעולה לא מוכרת');
@@ -829,8 +852,119 @@ async function teacherSummary(request, env) {
 /** התלמיד: התרגילים שהגיש למורה שלו, עם הציונים (מהתוסף — חלון השאלה; ומהדף "החשבון שלי") */
 async function studentWork(request, env) {
   const u = await studentUser(request, env);
-  const state = await studentState(env, u.email, true);
-  return { ok: true, teacher: state.teacher ? { name: state.teacher.name, school: state.teacher.school } : null, work: state.work };
+  const { out: state, member, teacherEmail } = await studentInfo(env, u.email, true);
+  const homework = member ? await homeworkOf(db(env), teacherEmail, member) : [];
+  return { ok: true, teacher: state.teacher ? { name: state.teacher.name, school: state.teacher.school } : null, work: state.work, homework };
+}
+
+// ------------------------------------------------------------------ שיעורי בית
+
+const LEVEL_HE = { easy: 'קל', medium: 'בינוני', hard: 'קשה' };
+let bankCache = null;
+
+/** השאלות במאגר — מהעותק שבשרת (אותו קובץ שעמדת הניהול מציגה ממנו את השאלה): מזהה → {title, topic (השם בעברית), level (בעברית)} */
+function bankIndex() {
+  if (bankCache) return bankCache;
+  const out = new Map();
+  try {
+    const topics = new Map((JSON.parse(ASSETS['/bank-topics.json'] || '{}').topics || []).map(t => [t.id, t.title]));
+    for (const [id, q] of Object.entries(JSON.parse(ASSETS['/bank-preview.json'] || '{}'))) {
+      out.set(id, { title: q.title || id, topic: topics.get(q.topic) || q.topic || '', level: LEVEL_HE[q.level] || q.level || '' });
+    }
+  } catch (e) {
+    console.error('bank index', e && e.message);
+  }
+  return (bankCache = out);
+}
+
+/** "28.11" — התאריך (שעון ישראל) של רגע ISO; לכותרת ברירת המחדל "שיעורי בית 28.11" */
+function israelDayMonth(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: 'numeric', month: 'numeric' }).formatToParts(d).map(x => [x.type, x.value]));
+  return `${+p.day}.${+p.month}`;
+}
+
+export function homeworkTitle(h) {
+  return h.title || ('שיעורי בית ' + israelDayMonth(h.createdAt)).trim();
+}
+
+/** YYYY-MM-DD של יום אמיתי */
+function validDay(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return y >= 2020 && y <= 2100 && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
+/**
+ * שיעורי הבית של תלמיד משויך (לתוסף, יחד עם הציונים): של המורה שלו, לכל התלמידים או לכיתה שלו, מהחדש לישן. לכל שאלה — האם
+ * הוגשה (שורה בתקציר עם אותו מזהה במאגר, גם מלפני שיעורי הבית), מתי, והציון. הנוסח (שם, נושא, רמה) — מהעותק של המאגר בשרת
+ */
+async function homeworkOf(store, teacher, member) {
+  const list = await store.query('homework', { where: [['teacher', '==', teacher]] });
+  const bank = bankIndex();
+  const byBank = new Map();
+  for (const w of workRows(member)) if (w.bankId && !byBank.has(w.bankId)) byBank.set(w.bankId, w);
+  return list.filter(h => !h.classId || h.classId === (member.classId || ''))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .map(h => ({
+      id: h._id, title: homeworkTitle(h), due: h.due || '',
+      items: (Array.isArray(h.items) ? h.items : []).map(id => {
+        const q = bank.get(id) || { title: id, topic: '', level: '' };
+        const w = byBank.get(id);
+        return { bankId: id, title: q.title, topic: q.topic, level: q.level, done: !!w, at: w ? w.at : '', grade: w ? w.grade : null };
+      }),
+    }));
+}
+
+/**
+ * שיעורי בית (המורה, מהדף): op=save — חדשים, או עדכון ({id} — רק של המורה הזה); op=delete — מוחק את שיעורי הבית בלבד
+ * (ההגשות והציונים של התלמידים נשארים)
+ */
+async function homeworkOp(request, env) {
+  const u = await teacherUser(request, env);
+  const b = await readJson(request);
+  const store = db(env);
+  const id = clip(b.id, 40);
+  const mine = async () => {
+    const h = id ? await store.get('homework/' + id) : null;
+    if (!h || h.teacher !== u.email) throw new Fail(404, 'not_found', 'שיעורי הבית לא נמצאו (אולי כבר נמחקו).');
+    return h;
+  };
+  if (b.op === 'delete') {
+    const h = await mine();
+    await store.remove('homework/' + id);
+    await log(store, u.email, 'homework.delete', homeworkTitle(h), `${(h.items || []).length} שאלות`);
+    return { ok: true };
+  }
+  if (b.op !== 'save') throw new Fail(400, 'format', 'פעולה לא מוכרת');
+  const bank = bankIndex();
+  const items = [...new Set((Array.isArray(b.items) ? b.items : []).map(x => clip(x, 80)).filter(Boolean))];
+  if (!items.length) throw new Fail(400, 'items', 'בוחרים לפחות שאלה אחת מהמאגר.');
+  if (items.length > HW_ITEMS) throw new Fail(400, 'items', `עד ${HW_ITEMS} שאלות בשיעורי בית אחד.`);
+  const unknown = items.filter(x => !bank.has(x));
+  if (unknown.length) throw new Fail(400, 'items', 'השאלה לא נמצאה במאגר: ' + unknown.slice(0, 3).join(', '));
+  const title = clip(String(b.title == null ? '' : b.title).replace(/\s+/g, ' '), 40);
+  const due = clip(b.due, 10);
+  if (due && !validDay(due)) throw new Fail(400, 'due', 'תאריך ההגשה לא תקין.');
+  const classId = clip(b.classId, 40);
+  if (classId) {
+    const c = await store.get('classes/' + classId);
+    if (!c || c.teacher !== u.email) throw new Fail(404, 'not_found', 'הכיתה לא נמצאה.');
+  }
+  const at = nowIso();
+  if (id) {
+    await mine();
+    await store.update('homework/' + id, { classId, items, title, due, updatedAt: at });
+    return { ok: true, id };
+  }
+  const all = await store.query('homework', { where: [['teacher', '==', u.email]] });
+  if (all.length >= HW_MAX) throw new Fail(400, 'limit', `אפשר לשמור עד ${HW_MAX} שיעורי בית. מוחקים שיעורי בית ישנים (ההגשות והציונים נשארים) — ואז יוצרים חדשים.`);
+  const nid = timeId();
+  await store.set('homework/' + nid, { teacher: u.email, classId, items, title, due, createdAt: at, updatedAt: at });
+  await log(store, u.email, 'homework.create', title || 'שיעורי בית', `${items.length} שאלות` + (classId ? '' : ' · לכל התלמידים'));
+  return { ok: true, id: nid };
 }
 
 async function myStudent(request, env) {
@@ -863,4 +997,5 @@ export const CLASSROOM_ROUTES = {
   'POST /v1/me/class': classOp,
   'POST /v1/me/member': memberOp,
   'POST /v1/me/settings': teacherSettings,
+  'POST /v1/me/homework': homeworkOp,
 };

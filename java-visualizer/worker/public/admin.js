@@ -27,6 +27,7 @@ const ACTIONS = {
   'station.bad-code': 'ניסיון חיבור עם קוד מורה שגוי', 'station.release': 'עמדה שוחררה', 'station.rename': 'שם של מחשב שונה', 'teacher.add': 'מורה נוסף', 'teacher.update': 'שינוי אצל מורה',
   'teacher.new-code': 'קוד מורה חדש', 'request.teacher': 'בקשת הרשאת מורה', 'request.seats': 'בקשת עמדות נוספות', 'request.release': 'בקשה לשחרר מחשב',
   'request.decline': 'בקשה נדחתה', 'student.grant': 'הענקת גישה לתלמיד', 'student.assign': 'תלמיד שויך למורה', 'student.unassign': 'בוטל שיוך של תלמיד למורה', 'student.revoke': 'ביטול גישה לתלמיד', 'session.revoke': 'מחשב נותק',
+  'homework.create': 'מורה נתן שיעורי בית', 'homework.delete': 'מורה מחק שיעורי בית',
   'payment.paid': 'תשלום התקבל', 'payment.seats': 'חבילת עמדות נקנתה', 'payment.refunded': 'החזר כספי', 'payment.failed': 'תשלום נכשל', settings: 'שינוי בהגדרות',
 };
 const dotFor = a => (a.startsWith('payment.') ? 'green' : a === 'station.bad-code' ? 'warn' : /^(teacher|student|settings|session|request\.decline)/.test(a) ? 'dark' : '');

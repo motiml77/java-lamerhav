@@ -284,10 +284,11 @@ export async function resolveToken(env, token, machine, caps) {
 
 /**
  * מה השרת הזה יודע (נשמר במחשב עם הכניסה): submit — "הגשה למורה" (POST /v1/submit); summary — כמה הגשות חדשות מחכות למורה
- * (POST /v1/teacher/summary); grades — התלמיד רואה את הציון שהמורה נתן (POST /v1/student/work). התוסף מציג את הכפתור רק כשהשרת אמר
+ * (POST /v1/teacher/summary); grades — התלמיד רואה את הציון שהמורה נתן (POST /v1/student/work); homework — שיעורי בית מהמורה
+ * (באותה תשובה של /v1/student/work). התוסף מציג את הכפתור רק כשהשרת אמר
  * שהוא יודע — כך גרסה חדשה של התוסף מול שרת ישן (או שרת שבו ההגשה כבויה) לא מציגה כפתור שלא עובד
  */
-const FEATURES = ['submit', 'summary', 'grades', 'panel'];
+const FEATURES = ['submit', 'summary', 'grades', 'panel', 'homework'];
 
 async function accessReply(env, r, extra) {
   const s = await settings(env);
