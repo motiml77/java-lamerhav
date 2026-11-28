@@ -59,6 +59,10 @@ final class BankVsWindow {
     static BankVsWindow current;
     /** לבדיקות: מה מוצג בעץ ובתצוגה */
     final List<String> treeShown = new ArrayList<String>(), previewShown = new ArrayList<String>();
+    /** שיעורי בית מהמורה (BankHomework) — null: אין, והחלון נראה כמו תמיד. הכפתור מעל החיפוש */
+    BankHomework homework;
+    final BankVsHomework hwButton = new BankVsHomework();
+    final JPanel hwHolder = new JPanel(new BorderLayout());
 
     final JFrame frame;
     final Set<String> open = new HashSet<String>();
@@ -99,6 +103,8 @@ final class BankVsWindow {
             mine.setText(AccessGate.teacherLink());
             mine.setVisible(!AccessGate.teacherLink().isEmpty());
             row.revalidate();
+            // הצטרף / עזב / עבר מורה: שיעורי הבית מתעדכנים (ובבדיקה מול השרת — מהמורה החדש)
+            SwingUtilities.invokeLater(() -> { refreshHomework(); rebuildTree(); BankSubmit.resetGradesClock(); BankSubmit.syncGradesLater(); });
         };
         AccessGate.onChange(accessChanged);
         if (AccessGate.canSignOut()) {
@@ -116,12 +122,15 @@ final class BankVsWindow {
     }
 
     static void open(String topic, String id) {
+        Submit.flushAsync();   // הגשות שנשמרו במחשב כשלא היה אינטרנט — נשלחות עכשיו, ברקע
         if (current != null && current.frame.isDisplayable()) {
             current.frame.toFront();
             if (id != null) current.select(id);
             return;
         }
         current = new BankVsWindow();
+        // הציונים ושיעורי הבית מהמורה — ברקע; הכפתור מופיע / מתעדכן כשהתשובה מגיעה (BankProgress מודיע)
+        if ("student".equals(Submit.mode())) BankSubmit.syncGradesLater();
         BankStore.Question first = null;
         for (BankStore.Question q : BankVs.store.questions) {
             if (id != null ? q.id.equals(id) : topic == null || q.topic.equals(topic)) {
@@ -172,6 +181,14 @@ final class BankVsWindow {
         stats.setAlignmentX(Component.RIGHT_ALIGNMENT);
         sideTop.add(stats);
         sideTop.add(RtlDialog.gap(10));
+        // שיעורי בית מהמורה: הכפתור (זוהר כשיש מה להגיש) — רק כשיש; בלי — לא תופס מקום
+        homework = BankHomework.current();
+        hwHolder.setOpaque(false);
+        hwHolder.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        hwHolder.setBorder(BorderFactory.createEmptyBorder(0, 0, BankZoom.px(6) - BankVsHomework.halo() + 4, 0));
+        hwHolder.add(hwButton, BorderLayout.CENTER);
+        hwButton.addActionListener(e -> homeworkClicked());
+        sideTop.add(hwHolder);
         final JTextField searchField = new HintField("חיפוש שאלה…");
         searchField.setAlignmentX(Component.RIGHT_ALIGNMENT);
         searchField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
@@ -254,6 +271,7 @@ final class BankVsWindow {
         frame.setContentPane(page);
         BankZoom.install(frame);
         styleChips();
+        refreshHomework();
         rebuildTree();
         RtlDialog.rtl(page);
         Rectangle s = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
@@ -262,6 +280,7 @@ final class BankVsWindow {
         onChange = () -> SwingUtilities.invokeLater(() -> {
             if (!frame.isDisplayable()) return;
             stats.repaint();
+            refreshHomework();
             rebuildTree();
             if (selected != null) showQuestion(selected);
         });
@@ -319,8 +338,9 @@ final class BankVsWindow {
             if (isOpen) {
                 for (BankStore.Question q : vis) {
                     boolean d = BankProgress.get().done(q.id);
-                    tree.add(new QuestionRow(q, d));
-                    treeShown.add("Q " + q.id + " " + q.level.id + (d ? " done" : ""));
+                    QuestionRow r = new QuestionRow(q, d);
+                    tree.add(r);
+                    treeShown.add("Q " + q.id + " " + q.level.id + (d ? " done" : "") + (r.hw != 0 ? (r.hw == 2 ? " hw" : " hw-done") : ""));
                 }
                 if (vis.isEmpty()) {
                     JLabel none = RtlDialog.label("עוד אין שאלות בנושא הזה", RtlDialog.small(), RtlDialog.MUTED);
@@ -425,15 +445,18 @@ final class BankVsWindow {
         }
     }
 
-    /** שורה של שאלה (מוזחת): קו העץ, נקודת קושי, השם, וסימון ירוק למי שסיים. לחיצה — מציגה את השאלה */
+    /** שורה של שאלה (מוזחת): קו העץ, נקודת קושי, השם, תגית "ש״ב" (שיעורי בית), וסימון ירוק למי שסיים. לחיצה — מציגה את השאלה */
     final class QuestionRow extends JComponent {
         final BankStore.Question q;
         final boolean done;
+        /** שיעורי בית: 0 — לא; 2 — עוד לא הוגשה; 1 — הוגשה */
+        final int hw;
         boolean hover;
 
         QuestionRow(final BankStore.Question q, boolean done) {
             this.q = q;
             this.done = done;
+            this.hw = homework == null || !homework.has(q.id) ? 0 : homework.isPending(q.id) ? 2 : 1;
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setPreferredSize(new Dimension(SIDEBAR - 20, Q_H));
             setMaximumSize(new Dimension(Integer.MAX_VALUE, Q_H));
@@ -473,7 +496,23 @@ final class BankVsWindow {
             g.setColor(RtlDialog.INK);
             FontMetrics fm = g.getFontMetrics();
             String t = q.title;
-            int max = x - 56;
+            // תגית "ש״ב" — משמאל לשם (ליד עיגול ה-V): כתומה כשעוד לא הוגשה, אפורה כשהוגשה
+            int leftEdge = 56;
+            if (hw != 0) {
+                Font tf = Theme.z(RtlDialog.bold().deriveFont(10.5f));
+                FontMetrics tm = g.getFontMetrics(tf);
+                String tag = "ש״ב";
+                int tagW = tm.stringWidth(tag) + 10, tx = done ? 56 : 32, th = tm.getAscent() + 2;
+                g.setColor(hw == 2 ? new Color(0xFFF1CC) : RtlDialog.SUNK);
+                g.fillRoundRect(tx, cy - th / 2, tagW, th, 6, 6);
+                g.setColor(hw == 2 ? new Color(0x8A5A00) : RtlDialog.MUTED);
+                g.setFont(tf);
+                g.drawString(tag, tx + 5, cy - th / 2 + tm.getAscent());
+                g.setFont(Theme.z(sel ? RtlDialog.bold().deriveFont(12.5f) : RtlDialog.ui().deriveFont(12.5f)));
+                g.setColor(RtlDialog.INK);
+                leftEdge = tx + tagW + 6;
+            }
+            int max = x - leftEdge;
             while (fm.stringWidth(t) > max && t.length() > 3) t = t.substring(0, t.length() - 2);
             if (!t.equals(q.title)) t = t + "…";
             g.drawString(t, x - fm.stringWidth(t), cy + fm.getAscent() / 2 - 2);
@@ -492,6 +531,26 @@ final class BankVsWindow {
     void toggle(String topic) {
         if (!open.remove(topic)) open.add(topic);
         rebuildTree();
+    }
+
+    // ------------------------------------------------------------------ שיעורי בית
+
+    /** הכפתור לפי מה שנשמר עכשיו (BankHomework.current): מוסתר כשאין שיעורי בית */
+    void refreshHomework() {
+        homework = BankHomework.current();
+        hwHolder.setVisible(homework != null);
+        if (homework != null) hwButton.show(homework);
+        hwHolder.revalidate();
+        hwHolder.repaint();
+    }
+
+    /** שאלה אחת שעוד לא הוגשה — נבחרת מיד; אחרת (כמה, או שהכול הוגש) — הרשימה */
+    void homeworkClicked() {
+        BankHomework h = homework;
+        if (h == null) return;
+        List<BankHomework.Item> p = h.pending();
+        if (p.size() == 1) select(p.get(0).bankId);
+        else BankVsHomework.showList(hwButton, h, this::select);
     }
 
     // ------------------------------------------------------------------ התצוגה
