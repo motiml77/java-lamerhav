@@ -22,6 +22,8 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
+import org.eclipse.swt.widgets.Menu;
+import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.Shell;
 
 /**
@@ -29,6 +31,7 @@ import org.eclipse.swt.widgets.Shell;
  *   סרגל צד (מימין): חיפוש, סינון לפי קושי (הכול / קל / בינוני / קשה), ועץ נפתח — נושא (עם פס התקדמות ו"כמה V מתוך כמה"),
  *   ומתחתיו השאלות בשורות קומפקטיות: נקודה בצבע הקושי, הכותרת, ועיגול שלוחצים עליו לסמן V ירוק ("כבר עשיתי").
  *   מעל הסרגל — סיכום ההתקדמות לכל רמת קושי. כל השאר — הנוסח של השאלה שנבחרה (כרטיסים, ציורים של המבנים, הפלט הרצוי).
+ * מעל החיפוש — כשיש שיעורי בית מהמורה (BankHomework): כפתור שזוהר כשיש שאלות שעוד לא הוגשו, ומוביל אליהן; בעץ — תגית "ש״ב".
  * בתחתית: לאיזה פרויקט, ו"צור תרגיל" (או "פתח את התרגיל" — אם כבר נוצר; ואז גם "צור עותק חדש").
  * החלון רק בוחר — את התרגיל בונה BankHandler אחרי שהחלון נסגר.
  */
@@ -69,6 +72,14 @@ public class BankDialog extends Dialog {
     private Composite buttons;
     private final List<Look.Chip> filterChips = new ArrayList<Look.Chip>();
     private final Runnable onProgress = () -> Display.getDefault().asyncExec(this::refreshMarks);
+    /** שיעורי בית מהמורה — null: אין (החלון כמו תמיד). הכפתור מעל החיפוש, וההילה שלו פועמת כשיש מה להגיש */
+    BankHomework homework;
+    Canvas hwButton;
+    boolean hwAnimating, hwHover;
+    /** לבדיקות: מה מוצג בכפתור ("HW glow|calm <טקסט>") וברשימה האחרונה ("SHEET ...", "ITEM <מזהה> ...") */
+    final List<String> hwShown = new ArrayList<String>();
+    Menu hwMenu;
+    private static final int HW_HALO = 6, HW_H = 46;
     /** האייקונים של הנושאים (icons/topics/<id>.png, 64 פיקסלים — מצוירים קטן) */
     private final java.util.Map<String, org.eclipse.swt.graphics.Image> icons = new java.util.HashMap<String, org.eclipse.swt.graphics.Image>();
 
@@ -169,6 +180,20 @@ public class BankDialog extends Dialog {
         stats.setLayoutData(stg);
         stats.addListener(SWT.Paint, e -> paintStats(e.gc, stats.getSize()));
 
+        // שיעורי בית מהמורה: הכפתור — רק כשיש (בלי — לא תופס מקום)
+        hwButton = new Canvas(side, SWT.NO_FOCUS | SWT.LEFT_TO_RIGHT | SWT.DOUBLE_BUFFERED);
+        GridData hg = new GridData(SWT.FILL, SWT.TOP, true, false);
+        hg.heightHint = HW_H + 2 * HW_HALO;
+        hg.horizontalIndent = 0;
+        hwButton.setLayoutData(hg);
+        hwButton.setCursor(d.getSystemCursor(SWT.CURSOR_HAND));
+        hwButton.setData("dsviz.id", "hw-button");
+        hwButton.addListener(SWT.Paint, e -> paintHomework(e.gc, hwButton.getSize()));
+        hwButton.addListener(SWT.MouseEnter, e -> { hwHover = true; hwButton.redraw(); });
+        hwButton.addListener(SWT.MouseExit, e -> { hwHover = false; hwButton.redraw(); });
+        hwButton.addListener(SWT.MouseUp, e -> { if (e.button == 1) homeworkClicked(); });
+        refreshHomework(false);
+
         Look.HintText searchBox = new Look.HintText(side, SWT.SINGLE | SWT.BORDER | SWT.RIGHT_TO_LEFT | SWT.SEARCH);
         searchBox.setHint("🔍  חיפוש שאלה…");
         searchBox.text.setLayoutData(new GridData(SWT.FILL, SWT.TOP, true, false));
@@ -237,6 +262,14 @@ public class BankDialog extends Dialog {
         Look.applyFont(area, -1);
         rebuildTree();
         showPreview(selected);
+        // הציונים ושיעורי הבית מהמורה — ברקע; הכפתור מתעדכן כשהתשובה מגיעה (BankProgress מודיע)
+        try {
+            Submit.flushAsync();   // הגשות שנשמרו במחשב כשלא היה אינטרנט — נשלחות עכשיו, ברקע
+            if ("student".equals(Submit.mode())) BankSubmit.syncGradesLater();
+        } catch (Throwable ignored) { /* בלי הכניסה — בלי שיעורי בית */ }
+        // החלון חוזר (מוצג / לא ממוזער) — ההילה ממשיכה; אחרי שהשינוי נכנס (האירוע נשלח לפני שהחלון באמת מוצג)
+        getShell().addListener(SWT.Deiconify, e -> d.asyncExec(this::hwAnimate));
+        getShell().addListener(SWT.Show, e -> d.asyncExec(this::hwAnimate));
         // העץ שנבנה לפני שהחלון קיבל את הגודל שלו (מימין לשמאל, GTK) נשאר מחוץ לתצוגה — הנושאים לא נראים עד הלחיצה הראשונה.
         // בונים אותו שוב ברגע שהחלון פתוח (נמצא בבדיקת הכניסה האמיתית ב-Eclipse: worker/test/eclipse-gate-e2e.mjs)
         d.asyncExec(() -> { if (tree != null && !tree.isDisposed()) rebuildTree(); });
@@ -355,7 +388,8 @@ public class BankDialog extends Dialog {
                     r.setLayoutData(rowData(Q_H));
                     if (q == selected) { r.setSelected(true); selRow = r; }
                     questionRows.add(r);
-                    treeShown.add("Q " + q.id + " " + q.level.id + (progress.done(q.id) ? " done" : ""));
+                    int hw = hwState(q.id);
+                    treeShown.add("Q " + q.id + " " + q.level.id + (progress.done(q.id) ? " done" : "") + (hw == 2 ? " hw" : hw == 1 ? " hw-done" : ""));
                 }
             }
             if (topicRows.isEmpty()) {
@@ -441,12 +475,16 @@ public class BankDialog extends Dialog {
         updateButtons();
     }
 
-    /** מה שכבר נוצר מהשאלה שנבחרה — אם הקבצים עוד בסביבת העבודה; אחרת null */
+    /** מה שכבר נוצר מהשאלה שנבחרה — אם הקבצים עוד בסביבת העבודה; אחרת null (גם כשאין סביבת עבודה — החלון לבד, בבדיקות) */
     private BankProgress.Created existing() {
         if (selected == null) return null;
         List<BankProgress.Created> all = progress.createdOf(selected.id);
-        for (int i = all.size() - 1; i >= 0; i--) {
-            for (String f : all.get(i).files) if (ResourcesPlugin.getWorkspace().getRoot().findMember(f) != null) return all.get(i);
+        try {
+            for (int i = all.size() - 1; i >= 0; i--) {
+                for (String f : all.get(i).files) if (ResourcesPlugin.getWorkspace().getRoot().findMember(f) != null) return all.get(i);
+            }
+        } catch (IllegalStateException | LinkageError noWorkspace) {
+            return null;
         }
         return null;
     }
@@ -488,9 +526,176 @@ public class BankDialog extends Dialog {
 
     private void refreshMarks() {
         if (getShell() == null || getShell().isDisposed()) return;
+        refreshHomework(true);
         for (Row r : topicRows) r.redraw();
         for (Row r : questionRows) r.redraw();
         if (stats != null) stats.redraw();
+    }
+
+    // ------------------------------------------------------------------ שיעורי בית
+
+    /** שיעורי הבית לפי מה שנשמר עכשיו (BankHomework.current): הכפתור מוסתר כשאין; layout — לסדר מחדש את הסרגל */
+    void refreshHomework(boolean layout) {
+        if (hwButton == null || hwButton.isDisposed()) return;
+        homework = BankHomework.current();
+        boolean show = homework != null;
+        GridData g = (GridData) hwButton.getLayoutData();
+        boolean changed = g.exclude == show || hwButton.getVisible() != show;
+        g.exclude = !show;
+        hwButton.setVisible(show);
+        hwShown.clear();
+        if (show) {
+            hwShown.add("HW " + state(homework) + homework.label());
+            hwButton.setToolTipText(homework.pending().size() == 1 ? "לחיצה — השאלה שעוד לא הוגשה" : "לחיצה — רשימת השאלות של שיעורי הבית");
+        }
+        if (layout && changed) hwButton.getParent().layout(true, true);
+        hwButton.redraw();
+        hwAnimate();
+    }
+
+    /** "glow " — יש מה להגיש; "wait " — נשאר רק מה שמחכה לאינטרנט; "calm " — הכול הוגש */
+    private static String state(BankHomework h) {
+        return h.glowing() ? "glow " : h.allDone() ? "calm " : "wait ";
+    }
+
+    /** 0 — השאלה לא בשיעורי הבית; 2 — בשיעורי הבית ועוד לא הוגשה; 1 — הוגשה (או מחכה לאינטרנט) */
+    private int hwState(String id) {
+        return homework == null || !homework.has(id) ? 0 : homework.isPending(id) ? 2 : 1;
+    }
+
+    /** שאלה אחת שעוד לא הוגשה — נבחרת מיד; אחרת (כמה, או שהכול הוגש) — הרשימה */
+    void homeworkClicked() {
+        BankHomework h = homework;
+        if (h == null) return;
+        List<BankHomework.Item> p = h.pending();
+        if (p.size() == 1) { pickHomework(p.get(0).bankId); return; }
+        if (hwMenu != null && !hwMenu.isDisposed()) hwMenu.dispose();
+        hwMenu = new Menu(getShell(), SWT.POP_UP | SWT.RIGHT_TO_LEFT);
+        hwShown.clear();
+        hwShown.add("HW " + state(h) + h.label());
+        boolean first = true;
+        for (BankHomework.Sheet s : h.sheets) {
+            if (!first) new MenuItem(hwMenu, SWT.SEPARATOR);
+            first = false;
+            String due = h.dueLine(s);
+            MenuItem head = new MenuItem(hwMenu, SWT.PUSH);
+            head.setText(s.title + (due.isEmpty() ? "" : "  ·  " + due));
+            head.setEnabled(false);
+            hwShown.add("SHEET " + s.title + " | " + due);
+            for (final BankHomework.Item i : s.items) {
+                MenuItem it = new MenuItem(hwMenu, SWT.PUSH);
+                // שם · נושא · מצב (בלי טאב: ב-GTK הטקסט שאחרי הטאב לא תמיד מוצג)
+                it.setText(i.title + (i.topic.isEmpty() ? "" : "  ·  " + i.topic) + "  ·  " + BankHomework.status(i));
+                it.setData("dsviz.id", "hw-item-" + i.bankId);
+                it.addListener(SWT.Selection, e -> pickHomework(i.bankId));
+                hwShown.add("ITEM " + i.bankId + " " + i.title + " · " + i.topic + " · " + BankHomework.status(i));
+            }
+        }
+        Point at = hwButton.toDisplay(hwButton.getSize().x - HW_HALO, hwButton.getSize().y - HW_HALO);
+        hwMenu.setLocation(at);
+        hwMenu.setVisible(true);
+    }
+
+    /** בוחרים את השאלה (פותחים את הנושא שלה בעץ ומציגים אותה) */
+    void pickHomework(String id) {
+        BankStore.Question q = store.find(id);
+        if (q != null) select(q.topic, q.id);
+    }
+
+    /** ההילה פועמת רק כשיש מה להגיש והחלון מוצג (לא ממוזער) */
+    void hwAnimate() {
+        if (hwAnimating || hwButton == null || hwButton.isDisposed()) return;
+        if (!hwGlowing()) return;
+        hwAnimating = true;
+        hwButton.getDisplay().timerExec(40, hwTick);
+    }
+
+    private boolean hwGlowing() {
+        if (homework == null || !homework.glowing() || hwButton == null || hwButton.isDisposed() || !hwButton.isVisible()) return false;
+        Shell sh = hwButton.getShell();
+        return sh.isVisible() && !sh.getMinimized();
+    }
+
+    private final Runnable hwTick = new Runnable() {
+        public void run() {
+            if (!hwGlowing()) { hwAnimating = false; return; }
+            hwButton.redraw();
+            hwButton.getDisplay().timerExec(40, this);
+        }
+    };
+
+    /** הכפתור: הילה כתומה שפועמת (יש מה להגיש) / רגוע וירוק (הכול הוגש); סמל מימין, שתי שורות טקסט, וחץ משמאל */
+    private void paintHomework(GC gc, Point s) {
+        Display d = Display.getCurrent();
+        gc.setAntialias(SWT.ON);
+        gc.setTextAntialias(SWT.ON);
+        gc.setBackground(Look.color(d, Look.CARD));
+        gc.fillRectangle(0, 0, s.x, s.y);
+        BankHomework h = homework;
+        if (h == null) return;
+        boolean glow = h.glowing(), wait = !glow && !h.allDone();   // wait — נשאר רק מה שמחכה לאינטרנט
+        int H = HW_HALO, bx = H, by = H, bw = s.x - 2 * H, bh = s.y - 2 * H, arc = 14;
+        if (glow) {
+            double t = (System.currentTimeMillis() % 2600) / 2600.0, p = 0.35 + 0.65 * (0.5 - 0.5 * Math.cos(2 * Math.PI * t));
+            gc.setForeground(Look.color(d, Look.AMBER));
+            gc.setLineWidth(2);
+            for (int k = H; k >= 1; k--) {
+                double f = 1 - (k - 1) / (double) H;
+                gc.setAlpha((int) Math.max(0, Math.min(255, Math.round(p * 0.32 * f * f * 255))));
+                gc.drawRoundRectangle(bx - k, by - k, bw + 2 * k - 1, bh + 2 * k - 1, arc + 2 * k, arc + 2 * k);
+            }
+            gc.setAlpha(255);
+            gc.setLineWidth(1);
+        }
+        gc.setBackground(Look.color(d, glow ? (hwHover ? 0xFFEDBF : 0xFFF4D6) : wait ? (hwHover ? 0xEAEDF2 : 0xF3F5F8) : (hwHover ? 0xEAF0E9 : 0xF1F6F2)));
+        gc.fillRoundRectangle(bx, by, bw - 1, bh - 1, arc, arc);
+        gc.setForeground(Look.color(d, glow ? Look.AMBER : wait ? 0xCDD5E1 : 0xBFDCC8));
+        gc.drawRoundRectangle(bx, by, bw - 2, bh - 2, arc, arc);
+        // הסמל: בית קטן בעיגול כתום / ✓ בעיגול ירוק
+        int is = 26, ix = bx + bw - 10 - is, iy = by + (bh - is) / 2, cx = ix + is / 2, cy = iy + is / 2, u = 3;
+        gc.setBackground(Look.color(d, glow ? Look.AMBER : wait ? 0x8A94A6 : Look.OK));
+        gc.fillOval(ix, iy, is, is);
+        gc.setForeground(Look.color(d, 0xFFFFFF));
+        gc.setLineWidth(2);
+        gc.setLineCap(SWT.CAP_ROUND);
+        gc.setLineJoin(SWT.JOIN_ROUND);
+        if (glow) {
+            gc.drawPolyline(new int[] { cx - 3 * u, cy - 1, cx, cy - 3 * u - 1, cx + 3 * u, cy - 1 });
+            gc.drawPolyline(new int[] { cx - 2 * u, cy - u, cx - 2 * u, cy + 3 * u, cx + 2 * u, cy + 3 * u, cx + 2 * u, cy - u });
+        } else if (wait) {   // שעון — מחכה לאינטרנט
+            gc.drawOval(cx - 3 * u, cy - 3 * u, 6 * u, 6 * u);
+            gc.drawPolyline(new int[] { cx, cy - 2 * u, cx, cy, cx + 2 * u, cy });
+        } else {
+            gc.drawPolyline(new int[] { cx - 3 * u, cy, cx - u, cy + 2 * u, cx + 3 * u, cy - 2 * u });
+        }
+        // החץ (משמאל)
+        int ax = bx + 14, ay = by + bh / 2;
+        gc.setForeground(Look.color(d, glow ? 0x7A4E00 : Look.MUTED));
+        gc.drawPolyline(new int[] { ax + 4, ay - 5, ax, ay, ax + 4, ay + 5 });
+        gc.setLineWidth(1);
+        // שתי שורות, מיושרות לימין
+        int right = ix - 10, left = ax + 14;
+        gc.setFont(Look.font(d, 0, SWT.BOLD));
+        String t1 = fit(gc, h.headline(), right - left);
+        Point e1 = gc.textExtent(t1);
+        gc.setFont(Look.font(d, -2, SWT.NORMAL));
+        String detail = h.detail();
+        String t2 = fit(gc, detail, right - left);
+        Point e2 = gc.textExtent(t2);
+        int y1 = by + (bh - e1.y - e2.y - 2) / 2;
+        gc.setFont(Look.font(d, 0, SWT.BOLD));
+        gc.setForeground(Look.color(d, glow || wait ? Look.TEXT : 0x1F6B3E));
+        gc.drawString(RtlText.rtl(t1), right - e1.x, y1, true);
+        gc.setFont(Look.font(d, -2, SWT.NORMAL));
+        gc.setForeground(Look.color(d, !glow ? Look.MUTED : detail.contains("עבר המועד") ? Look.ERR : 0x7A4E00));
+        gc.drawString(RtlText.rtl(t2), right - e2.x, y1 + e1.y + 2, true);
+    }
+
+    private static String fit(GC gc, String s, int max) {
+        if (gc.textExtent(s).x <= max) return s;
+        String t = s;
+        while (t.length() > 3 && gc.textExtent(t + "…").x > max) t = t.substring(0, t.length() - 1);
+        return t.trim() + "…";
     }
 
     // ------------------------------------------------------------------ סיכום ההתקדמות
@@ -648,10 +853,23 @@ public class BankDialog extends Dialog {
             // נקודת הקושי
             gc.setBackground(Look.color(d, q.level.color));
             gc.fillOval(s.x - indent - 12, s.y / 2 - 4, 8, 8);
+            // תגית "ש״ב" (שיעורי בית) — משמאל לשם, ליד עיגול ה-V: כתומה כשעוד לא הוגשה, אפורה כשהוגשה
+            int left = 32, hw = hwState(q.id);
+            if (hw != 0) {
+                gc.setFont(Look.font(d, -3, SWT.BOLD));
+                String tag = "ש״ב";
+                Point te = gc.textExtent(tag);
+                int tw = te.x + 10, th = te.y + 2, tx = 32, ty = (s.y - th) / 2;
+                gc.setBackground(Look.color(d, hw == 2 ? 0xFFF1CC : 0xF0F2F5));
+                gc.fillRoundRectangle(tx, ty, tw, th, 6, 6);
+                gc.setForeground(Look.color(d, hw == 2 ? 0x8A5A00 : Look.MUTED));
+                gc.drawString(tag, tx + 5, ty + 1, true);
+                left = tx + tw + 6;
+            }
             gc.setFont(Look.font(d, -2, selectedRow ? SWT.BOLD : SWT.NORMAL));
             String title = RtlText.rtl(q.title);
             Point e = gc.textExtent(title);
-            int right = s.x - indent - 20, left = 32;
+            int right = s.x - indent - 20;
             gc.setForeground(Look.color(d, selectedRow ? Look.ACCENT_DARK : Look.TEXT));
             gc.setClipping(left, 0, Math.max(0, right - left), s.y);
             gc.drawString(title, Math.max(left, right - e.x), (s.y - e.y) / 2, true);
