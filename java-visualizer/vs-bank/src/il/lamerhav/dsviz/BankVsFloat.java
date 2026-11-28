@@ -53,6 +53,8 @@ final class BankVsFloat {
     static SubmitState submit;
     /** אחרי הגשה: "הוגש למורה ב-10:42" — מוצג מעל "סיימתי את התרגיל" */
     static String submitNote;
+    /** submitNote הוא "נשמרה במחשב…" (אין אינטרנט) — כשההגשה נשלחת מתיבת היוצא, ההערה מתחלפת */
+    static boolean submitNoteQueued;
     /** לבדיקות: איך הסתיימה ההגשה האחרונה (ok / queued / קוד השגיאה); null — עוד לא הייתה מאז שדף ההגשה נפתח */
     static String submitResult;
 
@@ -112,7 +114,8 @@ final class BankVsFloat {
     }
 
     static void show(BankStore.Question q) {
-        if (question == null || !question.id.equals(q.id)) submitNote = null;
+        Submit.flushAsync();   // הגשות שנשמרו במחשב כשלא היה אינטרנט — נשלחות עכשיו, ברקע
+        if (question == null || !question.id.equals(q.id)) { submitNote = null; submitNoteQueued = false; }
         question = q;
         confirm = null;
         submit = null;
@@ -143,11 +146,14 @@ final class BankVsFloat {
         });
         BankProgress.get().listen(onChange);
         AccessGate.onChange(onChange);   // תלמיד שהצטרף למורה / יצא ממנו — הכפתור "הגשה למורה" מופיע / נעלם מיד
+        final Submit.Sent sent = ex -> onChange.run();   // הגשה שחיכתה לאינטרנט נשלחה (גם מעמדת מחשב) — "נשמרה במחשב" מתחלף
+        Submit.onSent(sent);
         f.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosed(WindowEvent e) {
                 BankProgress.get().unlisten(onChange);
                 AccessGate.offChange(onChange);
+                Submit.offSent(sent);
                 if (usable(f)) lastBounds = f.getBounds();
                 if (current == f) current = null;
             }
@@ -368,6 +374,11 @@ final class BankVsFloat {
                 row.setAlignmentX(Component.RIGHT_ALIGNMENT);
                 row.add(send, BorderLayout.CENTER);
                 up.add(row);
+                // ההגשה של הרגע חיכתה לאינטרנט ובינתיים נשלחה: תלמיד — מה שנרשם במחשב ("הוגש למורה ב-…"); עמדה — "נשלחה"
+                if (submitNote != null && submitNoteQueued && !Submit.waitingFor(q.id)) {
+                    submitNote = "student".equals(Submit.mode()) ? null : "ההגשה שנשמרה במחשב נשלחה למורה.";
+                    submitNoteQueued = false;
+                }
                 // מה שהוגש עכשיו, ואם אין — מה שנרשם בהגשה קודמת של התלמיד (גם אחרי שסגרו את התוכנה)
                 String note = submitNote != null ? submitNote : "student".equals(Submit.mode()) ? BankProgress.get().submittedNote(q.id, Submit.teacher()) : "";
                 if (!note.isEmpty()) {
@@ -444,6 +455,7 @@ final class BankVsFloat {
         st.files = BankSubmit.files(dir, BankVs.ext(), st.mainClass);
         submit = st;
         submitNote = null;
+        submitNoteQueued = false;
         submitResult = null;
         render();
         new javax.swing.SwingWorker<RunCheck.Result, Void>() {
@@ -611,6 +623,7 @@ final class BankVsFloat {
                     Submit.flushAsync();
                     if (submit == st) submit = null;
                     submitNote = Submit.doneText(r);
+                    submitNoteQueued = "queued".equals(r.status);
                     // נרשם במחשב (רק לתלמיד שמחובר בעצמו): גם מחר, כשפותחים את השאלה, רואים שהיא הוגשה
                     if ("student".equals(Submit.mode())) BankProgress.get().submitted(q.id, Submit.teacher(), "queued".equals(r.status));
                     if (st.thenComplete) {

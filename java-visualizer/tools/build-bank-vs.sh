@@ -16,7 +16,7 @@ sh tools/build-access.sh > /dev/null
 # מפריד ה-classpath: ב-Windows (Git Bash — javac של Windows, ב-CI של dsviz-vs-matrix.yml) נקודה-פסיק, אחרת נקודתיים
 S=:; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) S=';' ;; esac
 javac ${JAVAC_FLAGS:---release 8} -encoding UTF-8 -nowarn -cp "$OUT${S}release/dsviz.jar" -d "$OUT" \
-    $(find vs-bank/src -name '*.java') eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankClasses.java eclipse-bank/src/il/lamerhav/dsviz/BankSubmit.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java \
+    $(find vs-bank/src -name '*.java') eclipse-bank/src/il/lamerhav/dsviz/BankStore.java eclipse-bank/src/il/lamerhav/dsviz/BankClasses.java eclipse-bank/src/il/lamerhav/dsviz/BankSubmit.java eclipse-bank/src/il/lamerhav/dsviz/BankProgress.java eclipse-bank/src/il/lamerhav/dsviz/BankSections.java eclipse-bank/src/il/lamerhav/dsviz/BankHomework.java \
     eclipse-plugin/src/il/lamerhav/dsviz/CsSolution.java eclipse-plugin/src/il/lamerhav/dsviz/RunCheck.java
 # המאגר של Visual Studio רץ ב-Java של ההתקנה (jlink) — כולל הכניסה (Account / AccessGate): בלי מודול שלא נכנס אליה
 sh tools/check-jre-modules.sh "$OUT" release/dsviz.jar

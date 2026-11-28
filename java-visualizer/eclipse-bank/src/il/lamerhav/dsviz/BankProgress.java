@@ -8,11 +8,13 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * "מאגר תרגילים" — מה התלמיד כבר עשה: ה-V הירוק ("סיימתי"), ואילו קבצים נוצרו מכל שאלה (כדי לפתוח שוב את אותה עבודה ולא לדרוס אותה,
  * וכדי שחלון הצד "השאלה" יידע איזו שאלה שייכת לקובץ שפתוח בעורך).
- * נשמר ב-~/.dsviz/bank-progress.json (לא בפרויקט): {"questions": {"<id>": {"done": true, "doneAt": ..., "created": [{...}]}}}.
+ * נשמר ב-~/.dsviz/bank-progress.json (לא בפרויקט): {"questions": {"<id>": {"done": true, "doneAt": ..., "created": [{...}]}},
+ * "homework": {"teacher": ..., "syncedAt": ..., "sets": [...]}} — שיעורי הבית מהמורה, כמו שהשרת ענה בפעם האחרונה (BankHomework).
  * בלי תלות ב-Eclipse.
  */
 final class BankProgress {
@@ -24,18 +26,33 @@ final class BankProgress {
     }
 
     private static BankProgress shared;
+    private static boolean watching;
 
     /** הקובץ של המשתמש (-Ddsviz.bankProgress=<קובץ> — לבדיקות) */
     static synchronized BankProgress get() {
         String p = System.getProperty("dsviz.bankProgress");
         File f = p != null && !p.isEmpty() ? new File(p) : new File(System.getProperty("user.home"), ".dsviz/bank-progress.json");
         if (shared == null || !shared.file.equals(f)) shared = new BankProgress(f);
+        if (!watching) {
+            watching = true;
+            // הגשה שחיכתה לאינטרנט נשלחה (Submit — תיבת היוצא): "נשמרה במחשב" יורד, ההערה הופכת ל"הוגש למורה ב-…", והחלונות מתעדכנים
+            try {
+                Submit.onSent(ex -> {
+                    String id = Json.str(ex.get("bankId"));
+                    if ("bank".equals(ex.get("source")) && !id.isEmpty()) get().sentFromOutbox(id);
+                });
+            } catch (Throwable ignored) {
+                // בלי הכניסה (ספרייה חסרה) — אין גם תיבת יוצא
+            }
+        }
         return shared;
     }
 
     private final File file;
     private long loadedAt = -1;
     private Map<String, Object> questions = new LinkedHashMap<String, Object>();
+    /** שיעורי הבית מהבדיקה האחרונה מול השרת (ריק — אין) */
+    private Map<String, Object> homework = new LinkedHashMap<String, Object>();
     /** מי מקשיב לשינויים (חלון המאגר, חלון הצד) — נקראים אחרי כל שינוי */
     private final List<Runnable> listeners = new ArrayList<Runnable>();
 
@@ -173,8 +190,31 @@ final class BankProgress {
         if (teacher != null && !teacher.isEmpty() && !to.isEmpty() && !to.equals(teacher)) return "";   // הוגש למורה קודם
         // "19.11 בשעה 6:22" — מילה בין התאריך לשעה, כדי שהמספרים לא יתהפכו בשורה מימין לשמאל
         String when = new java.text.SimpleDateFormat("d.M 'בשעה' H:mm").format(new java.util.Date(((Number) q.get("submittedAt")).longValue()));
-        return Boolean.TRUE.equals(q.get("submitQueued")) ? "ההגשה מ-" + when + " נשמרה במחשב ונשלחת כשיש אינטרנט."
+        // "נשמרה במחשב" — רק כל עוד היא באמת מחכה בתיבת היוצא (נשלחה בתהליך אחר / לפני שהחלון הקשיב — כבר לא)
+        return Boolean.TRUE.equals(q.get("submitQueued")) && waitingInOutbox(id) ? "ההגשה מ-" + when + " נשמרה במחשב ונשלחת כשיש אינטרנט."
                 : "הוגש למורה" + (to.isEmpty() ? "" : " " + to) + " ב-" + when + ".";
+    }
+
+    private static boolean waitingInOutbox(String id) {
+        try {
+            return Submit.waitingFor(id);
+        } catch (Throwable e) {
+            return true;   // בלי הכניסה — לא יודעים; משאירים את מה שנרשם
+        }
+    }
+
+    /** הגשה שחיכתה בתיבת היוצא נשלחה (Submit.onSent): כבר לא "נשמרה במחשב"; הוגשה עכשיו. החלונות מתעדכנים */
+    void sentFromOutbox(String id) {
+        synchronized (this) {
+            load();
+            if (!Boolean.TRUE.equals(Json.obj(questions.get(id)).get("submitQueued"))) return;
+            if (waitingInOutbox(id)) return;   // עוד הגשה של אותה שאלה מחכה
+            Map<String, Object> q = entry(id);
+            q.remove("submitQueued");
+            q.put("submittedAt", (double) System.currentTimeMillis());
+            save();
+        }
+        fire();
     }
 
     // ------------------------------------------------------------------ הציון מהמורה
@@ -218,6 +258,56 @@ final class BankProgress {
         return "הציון מהמורה: " + ((Number) q.get("grade")).intValue() + (Boolean.TRUE.equals(q.get("gradeAgain")) ? " (על ההגשה הקודמת)" : "");
     }
 
+    // ------------------------------------------------------------------ שיעורי בית
+
+    /**
+     * שיעורי הבית כמו שהשרת ענה (Account.studentWork → homework): נשמרים בקובץ, כדי שהכפתור בחלון המאגר יופיע גם בלי אינטרנט.
+     * teacher — המורה שנתן (השם, להצגה ולבדיקה שזה עדיין המורה של התלמיד). מודיע רק אם משהו השתנה. syncedAt — מתי (מה שהוגש
+     * מהמחשב אחרי הרגע הזה נחשב "הוגש" גם לפני שהשרת יודע)
+     */
+    void syncHomework(String teacher, List<Object> sets) {
+        boolean changed;
+        synchronized (this) {
+            load();
+            Map<String, Object> h = new LinkedHashMap<String, Object>();
+            h.put("teacher", teacher == null ? "" : teacher);
+            h.put("sets", new ArrayList<Object>(sets));
+            changed = !Json.write(h.get("sets")).equals(Json.write(homework.get("sets"))) || !h.get("teacher").equals(Json.str(homework.get("teacher")));
+            h.put("syncedAt", (double) System.currentTimeMillis());
+            homework = h;
+            save();
+        }
+        if (changed) fire();
+    }
+
+    /** אין שיעורי בית (התלמיד לא משויך יותר, או שרת שלא מכיר אותם) */
+    void clearHomework() {
+        synchronized (this) {
+            load();
+            if (homework.isEmpty()) return;
+            homework = new LinkedHashMap<String, Object>();
+            save();
+        }
+        fire();
+    }
+
+    /** מה שנשמר (עותק): teacher, syncedAt, sets — או מפה ריקה */
+    synchronized Map<String, Object> homeworkData() {
+        load();
+        return new LinkedHashMap<String, Object>(homework);
+    }
+
+    /**
+     * מה הוגש מהמחשב הזה (לשיעורי הבית): 2 — ההגשה שמורה במחשב ומחכה לאינטרנט (waiting — Submit.waitingIds); 1 — הוגשה אחרי
+     * הבדיקה האחרונה מול השרת (since) — נחשבת "הוגשה" כבר עכשיו, והשרת מאשר בבדיקה הבאה; 0 — לא (או רק לפני — השרת יודע)
+     */
+    synchronized int localState(String id, double since, Set<String> waiting) {
+        load();
+        Map<String, Object> q = Json.obj(questions.get(id));
+        if (Boolean.TRUE.equals(q.get("submitQueued")) && waiting.contains(id)) return 2;
+        return q.get("submittedAt") instanceof Number && ((Number) q.get("submittedAt")).doubleValue() > since ? 1 : 0;
+    }
+
     // ------------------------------------------------------------------ קובץ
 
     private Map<String, Object> entry(String id) {
@@ -234,10 +324,12 @@ final class BankProgress {
         if (m == loadedAt) return;
         loadedAt = m;
         questions = new LinkedHashMap<String, Object>();
+        homework = new LinkedHashMap<String, Object>();
         if (m == 0) return;
         try {
             Map<String, Object> root = Json.obj(Json.parse(new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8)));
             questions = new LinkedHashMap<String, Object>(Json.obj(root.get("questions")));
+            homework = new LinkedHashMap<String, Object>(Json.obj(root.get("homework")));
         } catch (Exception e) {
             // קובץ פגום — מתחילים מחדש (לא נופלים)
         }
@@ -250,6 +342,7 @@ final class BankProgress {
             if (dir != null) dir.mkdirs();
             Map<String, Object> root = new LinkedHashMap<String, Object>();
             root.put("questions", questions);
+            if (!homework.isEmpty()) root.put("homework", homework);
             File tmp = new File(file.getPath() + ".tmp");
             Files.write(tmp.toPath(), Json.write(root).getBytes(StandardCharsets.UTF_8));
             Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);

@@ -34,17 +34,32 @@ final class BankSubmit {
     static void syncGrades() {
         try {
             if (!"student".equals(Submit.mode())) return;
-            Account.Result r = Account.studentWork();
-            if (!r.ok()) return;
-            Map<String, Object[]> grades = new LinkedHashMap<String, Object[]>();
-            for (Object o : Json.arr(r.body.get("work"))) {
-                Map<String, Object> w = Json.obj(o);
-                String id = Json.str(w.get("bankId"));
-                if (!id.isEmpty() && w.get("grade") instanceof Number) grades.put(id, new Object[] { w.get("grade"), Boolean.TRUE.equals(w.get("again")) });
-            }
-            BankProgress.get().syncGrades(grades);
+            applyWork(Account.studentWork());
         } catch (Throwable ignored) {
             // בפעם הבאה
+        }
+    }
+
+    /** התשובה של השרת (Account.studentWork): הציונים, ושיעורי הבית (גם לבדיקות — תשובה של שרת ישן, בלי homework) */
+    static void applyWork(Account.Result r) {
+        // השרת אומר שאין למי (לא משויך יותר / שרת בלי ציונים) — גם אין שיעורי בית
+        if ("none".equals(r.status)) { BankProgress.get().clearHomework(); return; }
+        if (!r.ok()) return;
+        Map<String, Object[]> grades = new LinkedHashMap<String, Object[]>();
+        for (Object o : Json.arr(r.body.get("work"))) {
+            Map<String, Object> w = Json.obj(o);
+            String id = Json.str(w.get("bankId"));
+            if (!id.isEmpty() && w.get("grade") instanceof Number) grades.put(id, new Object[] { w.get("grade"), Boolean.TRUE.equals(w.get("again")) });
+        }
+        BankProgress.get().syncGrades(grades);
+        // שיעורי הבית — באותה תשובה (BankHomework). שרת ישן בלי השדה הזה: אין שיעורי בית, ואין כפתור
+        if (r.body.get("homework") instanceof List) {
+            // המורה כמו שנשמר בכניסה (Submit.teacher — מולו BankHomework בודק שזה עדיין אותו מורה); אם אין — מהתשובה
+            String teacher = Submit.teacher();
+            if (teacher.isEmpty()) teacher = Json.str(Json.obj(r.body.get("teacher")).get("name"));
+            BankProgress.get().syncHomework(teacher, Json.arr(r.body.get("homework")));
+        } else {
+            BankProgress.get().clearHomework();
         }
     }
 

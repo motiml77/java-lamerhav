@@ -54,6 +54,10 @@ final class BankFloat {
     private SubmitState submit;
     /** אחרי הגשה: "הוגש למורה ב-10:42" — מוצג מעל "סיימתי את התרגיל" */
     private String submitNote;
+    /** submitNote הוא "נשמרה במחשב…" (אין אינטרנט) — כשההגשה נשלחת מתיבת היוצא, ההערה מתחלפת */
+    private boolean submitNoteQueued;
+    /** הגשה שחיכתה לאינטרנט נשלחה (Submit.onSent) — החלון מתעדכן */
+    private Submit.Sent sentListener;
     /** לבדיקות: איך הסתיימה ההגשה האחרונה (ok / queued / קוד השגיאה); null — עוד לא הייתה מאז שדף ההגשה נפתח */
     volatile String submitResult;
     /** התוצאה של ההגשה האחרונה גם אחרי שהחלון נסגר ("הגשה וסיום" סוגר אותו) — לבדיקות */
@@ -85,6 +89,7 @@ final class BankFloat {
 
     /** פותח (או מביא לקדמה) את החלון עם השאלה */
     static BankFloat show(IWorkbenchPage page, String questionId) {
+        Submit.flushAsync();   // הגשות שנשמרו במחשב כשלא היה אינטרנט — נשלחות עכשיו, ברקע
         // הפוקוס נשאר איפה שהיה (העורך): החלון "השאלה" רק מוצג — כך ההקלדה לא עוברת אליו (ולא מתחלפת לעברית)
         Control focus = page.getWorkbenchWindow().getShell().getDisplay().getFocusControl();
         if (current == null || current.shell.isDisposed()) current = new BankFloat(page);
@@ -169,10 +174,13 @@ final class BankFloat {
         onProgress = () -> d.asyncExec(() -> { if (!body.isDisposed()) render(); });
         BankProgress.get().listen(onProgress);
         AccessGate.onChange(onProgress);   // תלמיד שהצטרף למורה / יצא ממנו — הכפתור "הגשה למורה" מופיע / נעלם מיד
+        sentListener = ex -> onProgress.run();   // הגשה שחיכתה לאינטרנט נשלחה (גם מעמדת מחשב) — "נשמרה במחשב" מתחלף
+        Submit.onSent(sentListener);
         page.addPartListener(parts);
         shell.addListener(SWT.Dispose, e -> {
             BankProgress.get().unlisten(onProgress);
             AccessGate.offChange(onProgress);
+            Submit.offSent(sentListener);
             page.removePartListener(parts);
             if (current == BankFloat.this) current = null;
             BankQuestionSource.refresh();
@@ -198,6 +206,7 @@ final class BankFloat {
             confirm = null;
             submit = null;
             submitNote = null;
+            submitNoteQueued = false;
         }
         questionId = id;
         render();
@@ -263,6 +272,11 @@ final class BankFloat {
                     sg.verticalIndent = 6;
                     send.setLayoutData(sg);
                     shown.add("SUBMIT-BUTTON " + Submit.label());
+                    // ההגשה של הרגע חיכתה לאינטרנט ובינתיים נשלחה: תלמיד — מה שנרשם במחשב ("הוגש למורה ב-…"); עמדה — "נשלחה"
+                    if (submitNote != null && submitNoteQueued && !Submit.waitingFor(q.id)) {
+                        submitNote = "student".equals(Submit.mode()) ? null : "ההגשה שנשמרה במחשב נשלחה למורה.";
+                        submitNoteQueued = false;
+                    }
                     // מה שהוגש עכשיו, ואם אין — מה שנרשם בהגשה קודמת של התלמיד (גם אחרי שסגרו את התוכנה)
                     String note = submitNote != null ? submitNote : "student".equals(Submit.mode()) ? BankProgress.get().submittedNote(q.id, Submit.teacher()) : "";
                     if (!note.isEmpty()) {
@@ -437,6 +451,7 @@ final class BankFloat {
         st.files = BankSubmit.files(exerciseDir(q), ".java", st.mainClass);
         submit = st;
         submitNote = null;
+        submitNoteQueued = false;
         submitResult = null;
         lastSubmitResult = null;
         render();
@@ -572,6 +587,7 @@ final class BankFloat {
                     Submit.flushAsync();
                     if (submit == st) submit = null;
                     submitNote = Submit.doneText(res);
+                    submitNoteQueued = "queued".equals(res.status);
                     // נרשם במחשב (רק לתלמיד שמחובר בעצמו): גם מחר, כשפותחים את השאלה, רואים שהיא הוגשה
                     if ("student".equals(Submit.mode())) BankProgress.get().submitted(q.id, Submit.teacher(), "queued".equals(res.status));
                     if (st.thenComplete && BankHandler.complete(shell, q, false, st.keep)) shell.dispose();
