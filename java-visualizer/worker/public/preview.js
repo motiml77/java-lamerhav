@@ -12,6 +12,11 @@ function load() {
   return loading;
 }
 
+/** כל השאלות במאגר (מזהה → {title, topic, level, java, cs}) — גם לבחירת שאלות לשיעורי בית; נטען פעם אחת */
+export function bankData() {
+  return load();
+}
+
 const cell = v => h('span', { class: 'pv-cell' }, v === null || v === undefined ? '' : String(v));
 
 /** מבנה בתוך מבנה (inner): כל ערך הוא רשימה של ערכים — מצויר קטן בתוך התא */
@@ -100,26 +105,31 @@ export function hidePreview() {
   pop = null; owner = null;
 }
 
-async function show(el, id, lang) {
+async function show(el, id, lang, passive) {
   await load();
   if (owner !== el) return;
   if (pop) pop.remove();
-  pop = h('div', { class: 'pv-pop', role: 'tooltip', id: 'ex-preview' }, content(id, lang));
-  pop.addEventListener('mouseenter', () => clearTimeout(timer));
-  pop.addEventListener('mouseleave', () => { timer = setTimeout(hidePreview, 200); });
+  pop = h('div', { class: 'pv-pop' + (passive ? ' passive' : ''), role: 'tooltip', id: 'ex-preview' }, content(id, lang));
+  if (!passive) {
+    pop.addEventListener('mouseenter', () => clearTimeout(timer));
+    pop.addEventListener('mouseleave', () => { timer = setTimeout(hidePreview, 200); });
+  }
   document.body.append(pop);
   place(el);
 }
 
-/** מחבר את הבלון לאלמנט: מעבר עם העכבר, פוקוס במקלדת, או לחיצה (בטלפון) */
-export function attachPreview(el, exercise, lang) {
+/**
+ * מחבר את הבלון לאלמנט: מעבר עם העכבר, פוקוס במקלדת, או לחיצה (בטלפון). passive — הצצה בלבד (ברשימה שבוחרים ממנה כמה שורות
+ * ברצף, כמו בחירת השאלות לשיעורי בית): הבלון לא תופס את העכבר ולא מסתיר לחיצות על השורות שמתחתיו, ונעלם כשיוצאים מהשורה
+ */
+export function attachPreview(el, exercise, lang, passive) {
   const id = exercise && exercise.source === 'bank' ? exercise.bankId : '';
   if (!id) return el;
   el.classList.add('pv-anchor');
   el.setAttribute('aria-describedby', 'ex-preview');
   if (!el.hasAttribute('tabindex') && !/^(BUTTON|A)$/.test(el.tagName) && !el.closest('button')) el.tabIndex = 0;
-  const open = delay => { clearTimeout(timer); owner = el; timer = setTimeout(() => show(el, id, lang), delay); };
-  el.addEventListener('mouseenter', () => open(250));
+  const open = delay => { clearTimeout(timer); owner = el; timer = setTimeout(() => show(el, id, lang, passive), delay); };
+  el.addEventListener('mouseenter', () => open(passive ? 450 : 250));
   el.addEventListener('mouseleave', () => { clearTimeout(timer); timer = setTimeout(() => { if (owner === el) hidePreview(); }, 200); });
   el.addEventListener('focus', () => open(0));
   el.addEventListener('blur', () => { if (owner === el) hidePreview(); });

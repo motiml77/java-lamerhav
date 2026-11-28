@@ -1,10 +1,12 @@
-// עמדת הניהול של המורה (בדף /account): שני טאבים — "מחשבי המעבדה" ו"תלמידים" — וחלונית ההגשות עם הקוד ובדיקת ההרצה.
+// עמדת הניהול של המורה (בדף /account): שלושה טאבים — "מחשבי המעבדה", "תלמידים" ו"שיעורי בית" — וחלונית ההגשות עם הקוד ובדיקת ההרצה.
 // השרת: src/access/classroom.js (GET /v1/me/console וכו'). הכול נבנה עם h() — טקסט תמיד כטקסט (אין הזרקת קוד מנתונים של תלמידים).
 import { api, h, icon, ICONS, ago, fmtDate, daysSince, busy, toast } from '/static/common.js';
-import { attachPreview, hidePreview } from '/static/preview.js';
+import { attachPreview, hidePreview, bankData } from '/static/preview.js';
 
 const S = { tab: 'st', folder: 'all', open: null, subs: [], cur: null, curData: null, fileIdx: 0, ask: null, renaming: false, adding: false, q: '',
-  view: 'students', onlyNew: false };
+  view: 'students', onlyNew: false,
+  // שיעורי בית: התצוגה (לפי מטלה / סיכום תלמידים), מה פתוח, הטיוטה שבעריכה ({id, classId, items, title, due, topic}), אישור מחיקה
+  hwView: 'list', hwOpen: null, hwEdit: null, hwAsk: null };
 let data = null, root = null, onRelease = null, onData = null;
 
 /** מציג את עמדת הניהול בתוך container. requestRelease(station) — "בקשה לשחרר" להנהלה (כשנגמרו השחרורים של החודש) */
@@ -12,6 +14,8 @@ export async function mountConsole(container, { requestRelease, dataChanged } = 
   root = container;
   onRelease = requestRelease;
   onData = dataChanged;
+  // המאגר (שמות השאלות, נושאים) — לשיעורי בית; ברקע, בלי לעכב את עמדת הניהול
+  loadBank().then(() => { if (root && S.tab === 'hw') render(); });
   await reload();
 }
 
@@ -45,7 +49,8 @@ function render() {
   const t = data.teacher;
   const newSt = data.stations.reduce((n, s) => n + s.unseen, 0);
   const newSu = data.students.reduce((n, s) => n + (s.unseen || 0), 0);
-  const goTab = id => { S.tab = id; S.open = null; S.cur = null; S.curData = null; S.ask = null; S.renaming = false; S.adding = false; render(); };
+  const newHw = hwUnseen(data.students);
+  const goTab = id => { S.tab = id; S.open = null; S.cur = null; S.curData = null; S.ask = null; S.renaming = false; S.adding = false; S.hwAsk = null; render(); };
   // שורה דקה למעלה: רק מה שצריך בזמן העבודה — הקוד (לתת לתלמידים), ההגשות החדשות וההיתרים. הפרטים הכלליים — בטאב "קוד ועמדות" בדף
   const copy = h('button', { type: 'button', class: 'btn sm ghost', id: 'copy-code' }, 'העתקה');
   copy.onclick = async () => { try { await navigator.clipboard.writeText(t.code); toast('הקוד הועתק'); } catch (e) { toast(t.code); } };
@@ -60,9 +65,11 @@ function render() {
     h('span', { class: 'cs-item' }, h('span', { class: 'small muted' }, 'היתרים בשימוש'), h('b', null, `${t.used} מתוך ${t.seats}`)));
   const tab = (id, label, n, k) => h('button', { type: 'button', role: 'tab', class: 'con-tab', 'aria-selected': String(S.tab === id), id: 'tab-' + id,
     onclick: () => { S.onlyNew = false; goTab(id); } }, label, h('span', { class: 'n' }, String(n)), newDot(k));
-  const tabs = h('div', { class: 'con-tabs', role: 'tablist' }, tab('st', 'מחשבי המעבדה', data.stations.length, newSt), tab('su', 'תלמידים', data.students.length, newSu));
-  const pane = S.tab === 'st' ? stationsPane() : studentsPane();
-  root.replaceChildren(h('section', { class: 'card con' }, head, tabs, pane, detailPane()));
+  const tabs = h('div', { class: 'con-tabs', role: 'tablist' }, tab('st', 'מחשבי המעבדה', data.stations.length, newSt), tab('su', 'תלמידים', data.students.length, newSu),
+    tab('hw', 'שיעורי בית', hwList().length, newHw));
+  const pane = S.tab === 'st' ? stationsPane() : S.tab === 'su' ? studentsPane() : homeworkPane();
+  // בשיעורי בית החלונית של הקוד נפתחת מתחת לטבלה של אותם שיעורי בית (בתוך הרשימה); אחרת — בסוף, כמו תמיד
+  root.replaceChildren(h('section', { class: 'card con' }, head, tabs, pane, pane.querySelector('.detail') ? null : detailPane()));
 }
 
 // ------------------------------------------------------------------ מחשבי המעבדה
@@ -231,6 +238,7 @@ function studentsTable() {
       h('td', null, s.lastSubmitAt ? [h('div', null, s.lastTitle), h('div', { class: 'sub' }, ago(s.lastSubmitAt))] : h('span', { class: 'muted' }, 'עוד אין')),
       h('td', { class: 'num' }, String(s.submits), s.unseen ? [' ', pill('blue', s.unseen === 1 ? 'חדשה' : s.unseen + ' חדשות')] : null),
       h('td', { class: 'num avg' }, gradeAvg(s) ? [h('b', null, String(gradeAvg(s).avg)), h('div', { class: 'sub' }, gradeAvg(s).n === 1 ? 'ציון אחד' : gradeAvg(s).n + ' ציונים')] : h('span', { class: 'muted' }, '—')),
+      hwCell(s),
       h('td', null, h('div', { class: 'acts' },
         h('button', { type: 'button', class: 'btn sm' + (s.unseen ? ' primary' : ''), onclick: () => openRow('su', s.email) }, 'תרגילים'),
         h('button', { type: 'button', class: 'btn sm danger', onclick: () => { S.ask = { kind: 'student', id: s.email }; render(); } }, 'מחיקה')))));
@@ -241,13 +249,14 @@ function studentsTable() {
         do r = await api('POST', '/v1/me/member', { op: 'delete', student: s.email }); while (!r.done);
         S.ask = null; if (S.open && S.open.id === s.email) { S.open = null; S.cur = null; S.curData = null; } await reload(true); toast(`${s.name || s.email} נמחק מהרשימה`);
       });
-      rows.push(confirmRow(6, [h('span', { class: 'grow' }, `למחוק את ${s.name || s.email}? הוא יוצא מהרשימה שלך, ו`,
+      rows.push(confirmRow(7, [h('span', { class: 'grow' }, `למחוק את ${s.name || s.email}? הוא יוצא מהרשימה שלך, ו`,
         h('b', null, s.submits === 1 ? 'ההגשה שלו נמחקת' : `כל ${s.submits} ההגשות שלו נמחקות`), gradeAvg(s) ? ' עם הציונים שנתת' : '', ' לצמיתות. אי אפשר לשחזר. (אם ירצה, יוכל להצטרף שוב עם הקוד — מההתחלה.)'),
         go, h('button', { type: 'button', class: 'btn sm ghost', onclick: () => { S.ask = null; render(); } }, 'ביטול')]));
     }
   }
   const table = h('div', { class: 'tablewrap' }, h('table', { class: 'con-table' },
-    h('thead', null, h('tr', null, ['תלמיד', 'כיתה', 'ההגשה האחרונה', 'הגשות', 'ממוצע ציונים', ''].map(x => h('th', null, x)))), h('tbody', null, rows)));
+    h('thead', null, h('tr', null, ['תלמיד', 'כיתה', 'ההגשה האחרונה'].map(x => h('th', null, x)), ['הגשות', 'ממוצע ציונים'].map(x => h('th', { class: 'num' }, x)),
+      h('th', { class: 'hwcol', title: 'שיעורי בית: כמה שאלות הגיש מתוך מה שקיבל' }, 'ש״ב'), h('th', null, ''))), h('tbody', null, rows)));
   if (!fresh.length) return table;
   // סינון: רק מי שיש לו הגשה שעוד לא נפתחה
   const only = h('button', { type: 'button', class: 'sw', 'aria-pressed': String(S.onlyNew), id: 'only-new', onclick: () => { S.onlyNew = !S.onlyNew; render(); } },
@@ -305,28 +314,390 @@ function exercisesTable() {
       h('th', { class: 'gname', scope: 'row' }, h('span', { class: 'gn' }, s.name || s.email), s.left ? pill('gray', 'עזב') : null),
       h('td', { class: 'gsum' }, `${mine}/${exs.length}`),
       h('td', { class: 'gsum gavg' }, gradeAvg(s) ? String(gradeAvg(s).avg) : '—'),
-      exs.map(e => {
-        const w = e.rows.get(s.email);
-        if (!w) return h('td', { class: 'gcell' }, h('span', { class: 'gno', title: 'לא הוגש' }, '–'));
-        const graded = w.grade != null;
-        const text = `${s.name || s.email} · ${e.title} · ${(RESULT[w.result] || RESULT.none)[1]}` + (graded ? ` · ציון ${w.grade}` : '') + ` · ${ago(w.at)}`
-          + (w.n > 1 ? ` · הוגש ${w.n} פעמים` : '') + (w.seen ? '' : ' · חדש');
-        // תא עם ציון מציג את הציון (הצבע נשאר של בדיקת ההרצה); בלי ציון — הסימן של בדיקת ההרצה
-        return h('td', { class: 'gcell' }, h('button', { type: 'button', class: 'g ' + (RESULT[w.result] ? w.result : 'none') + (graded ? ' graded' : '') + (w.seen ? '' : ' new'),
-          'aria-current': String(S.cur === w.id), title: text, 'aria-label': text, onclick: () => openRow('su', s.email, w.id) }, graded ? String(w.grade) : MARK[w.result] || MARK.none));
-      }));
+      exs.map(e => gridCell(s, e.title, e.rows.get(s.email), false)));
   });
+  return h('div', { class: 'stack', style: { gap: '8px' } }, gridLegend(false),
+    h('div', { class: 'tablewrap gwrap' }, h('table', { class: 'gridt' }, h('thead', null, head), h('tbody', null, rows))));
+}
+
+/**
+ * תא בטבלת ההגשות: תא עם ציון מציג את הציון (הצבע נשאר של בדיקת ההרצה); בלי ציון — הסימן של בדיקת ההרצה; "–" — לא הוגש.
+ * late — הוגש אחרי המועד של שיעורי הבית (סימון קטן בפינה). לחיצה פותחת את הקוד של התלמיד למטה
+ */
+function gridCell(s, title, w, late) {
+  if (!w) return h('td', { class: 'gcell' }, h('span', { class: 'gno', title: 'לא הוגש' }, '–'));
+  const graded = w.grade != null;
+  const text = `${s.name || s.email} · ${title} · ${(RESULT[w.result] || RESULT.none)[1]}` + (graded ? ` · ציון ${w.grade}` : '') + ` · ${ago(w.at)}`
+    + (late ? ' · באיחור' : '') + (w.n > 1 ? ` · הוגש ${w.n} פעמים` : '') + (w.seen ? '' : ' · חדש');
+  return h('td', { class: 'gcell' }, h('button', { type: 'button', class: 'g ' + (RESULT[w.result] ? w.result : 'none') + (graded ? ' graded' : '') + (w.seen ? '' : ' new') + (late ? ' late' : ''),
+    'aria-current': String(S.cur === w.id), title: text, 'aria-label': text, onclick: () => openRow('su', s.email, w.id) }, graded ? String(w.grade) : MARK[w.result] || MARK.none));
+}
+
+/** המקרא של טבלת ההגשות (late — גם "באיחור", לשיעורי בית עם מועד) */
+function gridLegend(late) {
   const key = (r, label) => h('span', { class: 'gkey' }, h('span', { class: 'g ' + r, 'aria-hidden': 'true' }, MARK[r]), label);
-  const legend = h('div', { class: 'glegend' }, key('ok', 'הפלט תואם'), key('diff', 'הפלט שונה'), key('err', 'לא מתקמפל'), key('time', 'נעצר'), key('none', 'בלי בדיקה'),
+  return h('div', { class: 'glegend' }, key('ok', 'הפלט תואם'), key('diff', 'הפלט שונה'), key('err', 'לא מתקמפל'), key('time', 'נעצר'), key('none', 'בלי בדיקה'),
     h('span', { class: 'gkey' }, h('span', { class: 'gno', 'aria-hidden': 'true' }, '–'), 'לא הוגש'), h('span', { class: 'gkey' }, h('span', { class: 'g ok new', 'aria-hidden': 'true' }, MARK.ok), 'חדש'),
     h('span', { class: 'gkey' }, h('span', { class: 'g ok graded', 'aria-hidden': 'true' }, '90'), 'הציון שנתת'),
+    late ? h('span', { class: 'gkey' }, h('span', { class: 'g ok late', 'aria-hidden': 'true' }, MARK.ok), 'באיחור') : null,
     h('span', { class: 'gkey' }, '· לחיצה על סימן פותחת את הקוד'));
-  return h('div', { class: 'stack', style: { gap: '8px' } }, legend,
-    h('div', { class: 'tablewrap gwrap' }, h('table', { class: 'gridt' }, h('thead', null, head), h('tbody', null, rows))));
 }
 
 function confirmRow(cols, kids) {
   return h('tr', null, h('td', { colspan: String(cols) }, h('div', { class: 'confirm' }, kids)));
+}
+
+// ------------------------------------------------------------------ שיעורי בית
+// המורה בוחר שאלות מהמאגר לכל התלמידים או לכיתה. מה שהוגש לא נשמר בשיעורי הבית: מחברים את השאלות לתקציר של כל תלמיד (work, לפי
+// bankId) — שאלה שהתלמיד הגיש עוד קודם נחשבת כהוגשה; "באיחור" — אחרי סוף יום ההגשה, שעון ישראל. אותו מראה כמו "לפי תרגיל".
+
+let bank = null, topics = [], bankLoading = null;
+const LEVELS = { easy: ['קל', 'green', 0], medium: ['בינוני', 'orange', 1], hard: ['קשה', 'red', 2] };
+const HW_MAX_ITEMS = 10;
+
+/** המאגר (bank-preview.json — כבר בשימוש לבלון השאלה) והנושאים, פעם אחת */
+function loadBank() {
+  if (!bankLoading) {
+    bankLoading = Promise.all([bankData(), fetch('/static/bank-topics.json').then(r => (r.ok ? r.json() : {})).catch(() => ({}))])
+      .then(([b, t]) => { bank = b || {}; topics = (t && t.topics) || []; });
+  }
+  return bankLoading;
+}
+/** זיכרון קטן בדפדפן הזה (הכיתה והנושא האחרונים) — בלי זיכרון זה פשוט לא נזכר */
+function remember(k, v) {
+  try { if (v === undefined) return localStorage.getItem('dsviz.hw.' + k); localStorage.setItem('dsviz.hw.' + k, v); } catch (e) { /* פרטי / חסום */ }
+  return null;
+}
+const hwList = () => (data && Array.isArray(data.homework) ? data.homework : []);   // שרת ישן — בלי שיעורי בית
+const ISRAEL = { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' };
+function israelParts(ms) {
+  return Object.fromEntries(new Intl.DateTimeFormat('en-GB', ISRAEL).formatToParts(new Date(ms)).map(x => [x.type, x.value]));
+}
+/** "28.11" — היום והחודש (שעון ישראל) של רגע ISO */
+function dayMonth(iso) {
+  const t = Date.parse(iso);
+  if (isNaN(t)) return '';
+  const p = israelParts(t);
+  return `${+p.day}.${+p.month}`;
+}
+const hwTitle = hw => hw.title || 'שיעורי בית ' + dayMonth(hw.createdAt);
+const dueText = due => { const [, m, d] = String(due).split('-'); return `${+d}.${+m}`; };
+/** סוף יום ההגשה: חצות שאחרי due, שעון ישראל (במילישניות) */
+function dueEnd(due) {
+  const [y, m, d] = String(due).split('-').map(Number);
+  const guess = Date.UTC(y, m - 1, d + 1);
+  const p = israelParts(guess);
+  return guess - (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - guess);
+}
+const pastDue = hw => !!hw.due && Date.now() > dueEnd(hw.due);
+const isLate = (hw, w) => !!hw.due && !!w && Date.parse(w.at) > dueEnd(hw.due);
+/** שם השאלה: מהמאגר; אם עוד לא נטען — כמו שהגיע עם הגשה של תלמיד */
+function qTitle(id) {
+  if (bank && bank[id]) return bank[id].title;
+  for (const s of data.students) { const w = (s.work || []).find(x => x.bankId === id); if (w) return w.title; }
+  return id;
+}
+const levelPill = lv => (LEVELS[lv] ? pill(LEVELS[lv][1], LEVELS[lv][0]) : null);
+/** ההגשה האחרונה של התלמיד לכל שאלה מהמאגר (work כבר ממוין מהחדש לישן) */
+const byBankCache = new WeakMap();
+function byBank(s) {
+  let m = byBankCache.get(s);
+  if (!m) {
+    m = new Map();
+    for (const w of s.work || []) if (w.bankId && !m.has(w.bankId)) m.set(w.bankId, w);
+    byBankCache.set(s, m);
+  }
+  return m;
+}
+/** שיעורי הבית שניתנו לתלמיד: לכל התלמידים, או לכיתה שלו */
+const hwOf = s => hwList().filter(hw => !hw.classId || hw.classId === s.classId);
+/** שיעורי הבית שמוצגים בתיקייה: בכיתה — שלה ושל כולם; "בלי כיתה" — רק של כולם */
+function hwInFolder(f = S.folder) {
+  return hwList().filter(hw => f === 'all' || (f === '' ? !hw.classId : !hw.classId || hw.classId === f));
+}
+/** התלמידים (פעילים, בתיקייה) ששיעורי הבית ניתנו להם */
+function hwStudents(hw, f = S.folder) {
+  return inFolder(f).filter(s => !s.left && (!hw.classId || s.classId === hw.classId));
+}
+/** כמה הגישו הכול / חלק, כמה הגשות מחכות לציון, וכמה עוד לא נפתחו */
+function hwStats(hw) {
+  const list = hwStudents(hw);
+  let full = 0, part = 0, waiting = 0, unseen = 0;
+  for (const s of list) {
+    const m = byBank(s);
+    let k = 0;
+    for (const id of hw.items) {
+      const w = m.get(id);
+      if (!w) continue;
+      k++;
+      if (w.grade == null) waiting++;
+      if (!w.seen) unseen++;
+    }
+    if (k === hw.items.length) full++; else if (k) part++;
+  }
+  return { n: list.length, full, part, waiting, unseen };
+}
+/** הגשות של שאלות משיעורי הבית שהמורה עוד לא פתח (כל הגשה פעם אחת) */
+function hwUnseen(list) {
+  let n = 0;
+  for (const s of list) {
+    if (s.left) continue;
+    const ids = new Set();
+    for (const hw of hwOf(s)) for (const id of hw.items) ids.add(id);
+    if (ids.size) for (const w of s.work || []) if (!w.seen && ids.has(w.bankId)) n++;
+  }
+  return n;
+}
+/** לתלמיד, על כל שיעורי הבית שלו: כמה שאלות קיבל, כמה הגיש, כמה באיחור, וממוצע הציונים */
+function hwTotals(s) {
+  let total = 0, done = 0, late = 0;
+  const grades = [];
+  for (const hw of hwOf(s)) {
+    for (const id of hw.items) {
+      total++;
+      const w = byBank(s).get(id);
+      if (!w) continue;
+      done++;
+      if (isLate(hw, w)) late++;
+      if (w.grade != null) grades.push(w.grade);
+    }
+  }
+  return { total, done, late, avg: grades.length ? Math.round(grades.reduce((a, b) => a + b, 0) / grades.length) : null };
+}
+/** העמודה "שיעורי בית" בטבלת התלמידים: "7/9" */
+function hwCell(s) {
+  const t = hwTotals(s);
+  return h('td', { class: 'num hwcol', title: t.total ? `הגיש ${t.done} מתוך ${t.total} השאלות בשיעורי הבית` + (t.late ? ` (${t.late} באיחור)` : '') : null },
+    t.total ? h('span', { class: t.done === t.total ? 'hw-all' : null }, `${t.done}/${t.total}`) : h('span', { class: 'muted' }, '—'));
+}
+function hwEmpty() {
+  return data.students.some(s => !s.left)
+    ? 'עוד אין שיעורי בית. לוחצים על "+ שיעורי בית חדשים" ובוחרים שאלות מהמאגר — התלמידים רואים אותן בחלון מאגר התרגילים, עם כפתור שמוביל אליהן.'
+    : `עוד אין תלמידים שמחוברים אליך. שיעורי בית ניתנים לתלמידים שהצטרפו בקוד ${data.teacher.code} (לא לעמדות המחשב), והם רואים אותם בחלון מאגר התרגילים.`;
+}
+
+function homeworkPane() {
+  const seg = (id, label) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(S.hwView === id), id: 'hw-view-' + id,
+    onclick: () => { S.hwView = id; S.open = null; S.cur = null; S.curData = null; S.hwAsk = null; render(); } }, label);
+  const composing = S.hwEdit && !S.hwEdit.id;
+  // הסינון לפי כיתה — אותה בחירה כמו בטאב "תלמידים" (S.folder), כאן כרשימה נפתחת: כל הרוחב נשאר לטבלאות
+  const pick = h('select', { class: 'field sm', id: 'hw-folder', 'aria-label': 'כיתה' },
+    h('option', { value: 'all', selected: S.folder === 'all' }, `כל התלמידים (${data.students.length})`),
+    data.classes.map(c => h('option', { value: c.id, selected: S.folder === c.id }, `${c.name} (${inFolder(c.id).length})`)),
+    h('option', { value: '', selected: S.folder === '' }, `בלי כיתה (${inFolder('').length})`));
+  pick.onchange = () => { S.folder = pick.value; S.open = null; S.cur = null; S.curData = null; S.hwAsk = null; render(); };
+  return h('div', { class: 'con-pane' },
+    h('div', { class: 'con-tools' },
+      h('div', { class: 'seg', role: 'tablist', 'aria-label': 'איך להציג' }, seg('list', 'לפי מטלה'), seg('sum', 'סיכום תלמידים')),
+      h('label', { class: 'hw-f' }, h('span', { class: 'small muted' }, 'כיתה'), pick),
+      h('span', { class: 'grow' }),
+      composing ? null : h('button', { type: 'button', class: 'btn sm primary', id: 'hw-new', onclick: () => openComposer(null) }, '+ שיעורי בית חדשים')),
+    h('div', { class: 'con-main' },
+      composing ? composer() : null,
+      S.hwView === 'sum' ? hwSummary() : hwListView()));
+}
+
+/** הטופס (חדשים, או עריכה של hw): הכיתה האחרונה שנבחרה, הנושא האחרון */
+function openComposer(hw) {
+  const last = remember('class');
+  const known = id => id === '' || data.classes.some(c => c.id === id);
+  const def = hw ? hw.classId : last !== null && known(last) ? last : S.folder !== 'all' && S.folder !== '' ? S.folder : '';
+  S.hwEdit = { id: hw ? hw.id : '', classId: def, items: hw ? hw.items.slice() : [], title: hw ? hw.title : '', due: hw ? hw.due : '', topic: '' };
+  S.hwView = 'list'; S.hwAsk = null; S.open = null; S.cur = null; S.curData = null;
+  if (hw) S.hwOpen = hw.id;
+  render();
+  setTimeout(() => { const el = root.querySelector('#hw-composer'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' }); }, 0);
+}
+
+/**
+ * בחירת השאלות: שורה עם הכיתה, המועד והכותרת; שורת נושאים (בכל אחד — כמה נבחרו בו); השאלות של הנושא כשורות דקות (שם · רמה · ✓,
+ * מעבר עם העכבר — השאלה כמו שהתלמיד רואה אותה); הנבחרות כתגיות שאפשר להסיר; ושליחה. מתעדכן במקום (בלי לבנות את כל הדף)
+ */
+function composer() {
+  const ed = S.hwEdit;
+  const box = h('div', { class: 'hw-comp', id: 'hw-composer' });
+  const redraw = () => { const n = composer(); box.replaceWith(n); return n; };
+  box.append(h('div', { class: 'hw-comp-head' }, h('h3', null, ed.id ? 'עריכת שיעורי הבית' : 'שיעורי בית חדשים'),
+    h('span', { class: 'small muted' }, 'התלמידים רואים אותם בחלון מאגר התרגילים, עם כפתור שמוביל לשאלות. מגישים כרגיל ב"הגשה למורה".')));
+  if (!bank) {
+    box.append(h('div', { class: 'empty' }, 'טוען את המאגר…'));
+    loadBank().then(() => { if (box.isConnected) redraw(); });
+    return box;
+  }
+  const cls = h('select', { class: 'field sm', id: 'hw-class', 'aria-label': 'לכיתה' },
+    h('option', { value: '', selected: !ed.classId }, 'כל התלמידים שלי'), data.classes.map(c => h('option', { value: c.id, selected: c.id === ed.classId }, c.name)));
+  cls.onchange = () => { ed.classId = cls.value; };
+  const due = h('input', { class: 'field sm', type: 'date', id: 'hw-due', value: ed.due, 'aria-label': 'להגשה עד (לא חובה)' });
+  due.onchange = () => { ed.due = due.value; };
+  const title = h('input', { class: 'field sm hw-title-in', id: 'hw-title', maxlength: '40', value: ed.title, autocomplete: 'off',
+    placeholder: 'שיעורי בית ' + dayMonth(new Date().toISOString()), 'aria-label': 'כותרת (לא חובה)' });
+  title.oninput = () => { ed.title = title.value; };
+  box.append(h('div', { class: 'hw-fields' },
+    h('label', { class: 'hw-f' }, h('span', null, 'לכיתה'), cls),
+    h('label', { class: 'hw-f' }, h('span', null, 'להגשה עד'), due),
+    h('label', { class: 'hw-f' }, h('span', null, 'כותרת'), title)));
+  // הנושאים
+  const tp = (topics.some(t => t.id === ed.topic) && ed.topic) || (topics.some(t => t.id === remember('topic')) && remember('topic')) || (topics[0] && topics[0].id) || '';
+  box.append(h('div', { class: 'hw-topics', role: 'tablist', 'aria-label': 'נושא' }, topics.map(t => {
+    const n = ed.items.filter(id => bank[id] && bank[id].topic === t.id).length;
+    return h('button', { type: 'button', role: 'tab', class: 'hw-topic', 'aria-selected': String(t.id === tp), 'data-topic': t.id,
+      onclick: () => { ed.topic = t.id; remember('topic', t.id); redraw(); } }, t.title, n ? h('span', { class: 'hw-tn' }, String(n)) : null);
+  })));
+  // השאלות של הנושא: לפי רמה ואז לפי השם
+  const full = ed.items.length >= HW_MAX_ITEMS;
+  const qs = Object.keys(bank).filter(id => bank[id].topic === tp)
+    .sort((a, b) => ((LEVELS[bank[a].level] || [])[2] - (LEVELS[bank[b].level] || [])[2]) || collator.compare(bank[a].title, bank[b].title));
+  const toggle = id => {
+    if (ed.items.includes(id)) ed.items = ed.items.filter(x => x !== id);
+    else if (ed.items.length >= HW_MAX_ITEMS) { toast(`עד ${HW_MAX_ITEMS} שאלות בשיעורי בית אחד`, true); return; }
+    else ed.items = ed.items.concat([id]);
+    const n = redraw(), again = n.querySelector(`.hw-q[data-id="${CSS.escape(id)}"]`);
+    if (again) again.focus();
+  };
+  box.append(h('div', { class: 'hw-qs', id: 'hw-qs' }, qs.map(id => {
+    const on = ed.items.includes(id);
+    const t = h('span', { class: 'hw-qt' }, bank[id].title);
+    const row = h('button', { type: 'button', class: 'hw-q', 'aria-pressed': String(on), 'aria-disabled': String(!on && full), 'data-id': id, onclick: () => toggle(id) },
+      h('span', { class: 'hw-box', 'aria-hidden': 'true' }, on ? '✓' : ''), t, levelPill(bank[id].level));
+    attachPreview(t, { source: 'bank', bankId: id }, 'java', true);
+    return row;
+  })));
+  // הנבחרות
+  box.append(h('div', { class: 'hw-picked', id: 'hw-picked' }, ed.items.length
+    ? [h('span', { class: 'small muted' }, `נבחרו (${ed.items.length} מתוך ${HW_MAX_ITEMS} לכל היותר):`), ed.items.map(id => h('span', { class: 'hw-chip', 'data-id': id }, qTitle(id),
+      h('button', { type: 'button', class: 'hw-x', 'aria-label': 'הסרה: ' + qTitle(id), onclick: () => { ed.items = ed.items.filter(x => x !== id); redraw(); } }, '×')))]
+    : h('span', { class: 'small muted' }, 'עוד לא נבחרו שאלות. בוחרים נושא ולוחצים על שאלה כדי להוסיף אותה (עד 10).')));
+  // שליחה
+  const n = ed.items.length, word = n === 1 ? 'שאלה אחת' : n + ' שאלות';
+  const send = h('button', { type: 'button', class: 'btn sm primary', id: 'hw-send', disabled: !n }, ed.id ? `שמירת השינויים (${word})` : `שליחה לתלמידים (${word})`);
+  send.onclick = () => busy(send, async () => {
+    const r = await api('POST', '/v1/me/homework', { op: 'save', id: ed.id || undefined, classId: ed.classId, items: ed.items, title: ed.title.trim(), due: ed.due });
+    remember('class', ed.classId);
+    const edited = !!ed.id, to = ed.classId ? 'לכיתה ' + className(ed.classId) : 'לכל התלמידים';
+    // תיקייה שלא מציגה את שיעורי הבית האלה — עוברים ל"כל התלמידים", כדי לראות אותם
+    if (!(S.folder === 'all' || (S.folder === '' ? !ed.classId : !ed.classId || ed.classId === S.folder))) S.folder = 'all';
+    S.hwEdit = null; S.hwOpen = r.id; S.hwView = 'list'; S.open = null; S.cur = null; S.curData = null;
+    await reload(true);
+    toast(edited ? 'השינויים נשמרו' : `שיעורי הבית נשלחו ${to} (${word})`);
+  });
+  box.append(h('div', { class: 'hw-send' }, send,
+    h('button', { type: 'button', class: 'btn sm ghost', id: 'hw-cancel', onclick: () => { S.hwEdit = null; render(); } }, 'ביטול'),
+    ed.classId === '' && data.classes.length ? h('span', { class: 'small muted' }, 'לכל התלמידים — גם למי שבלי כיתה') : null));
+  return box;
+}
+
+/** "לפי מטלה": שורה דקה לכל שיעורי בית; לחיצה פותחת מתחתיה את הטבלה של מי הגיש מה */
+function hwListView() {
+  if (!hwList().length) return h('div', { class: 'tablewrap' }, h('div', { class: 'empty', id: 'hw-empty' }, hwEmpty()));
+  const list = hwInFolder();
+  if (!list.length) return h('div', { class: 'tablewrap' }, h('div', { class: 'empty' }, S.folder === '' ? 'אין שיעורי בית לכל התלמידים — רק לכיתות.' : 'אין עדיין שיעורי בית לכיתה הזו.'));
+  const out = [h('div', { class: 'hw-head hw-grid', 'aria-hidden': 'true' }, ['שיעורי בית', 'לכיתה', 'שאלות', 'להגשה עד', 'הגישו', 'ממתינות לציון'].map(x => h('span', null, x)))];
+  for (const hw of list) {
+    const st = hwStats(hw), open = S.hwOpen === hw.id;
+    const pct = st.n ? Math.round(100 * st.full / st.n) : 0;
+    out.push(h('button', { type: 'button', class: 'hw-row hw-grid', 'aria-expanded': String(open), 'data-id': hw.id,
+      onclick: () => { S.hwOpen = open ? null : hw.id; S.open = null; S.cur = null; S.curData = null; S.hwAsk = null; if (S.hwEdit && S.hwEdit.id) S.hwEdit = null; render(); } },
+      h('span', { class: 'hw-t' }, h('span', { class: 'hw-chev', 'aria-hidden': 'true' }, open ? '▾' : '◂'), h('b', null, hwTitle(hw)), newDot(st.unseen)),
+      h('span', { class: 'hw-c' }, hw.classId ? className(hw.classId) : 'כל התלמידים'),
+      h('span', { class: 'hw-n' }, hw.items.length === 1 ? 'שאלה אחת' : hw.items.length + ' שאלות'),
+      h('span', { class: 'hw-d' }, hw.due ? [h('span', null, dueText(hw.due)), pastDue(hw) ? pill('orange', 'עבר המועד') : null] : h('span', { class: 'muted' }, '—')),
+      h('span', { class: 'hw-p', title: st.n ? `${st.full} הגישו את כל השאלות` + (st.part ? `, ${st.part} רק חלק` : '') + `, מתוך ${st.n} תלמידים` : 'אין תלמידים' },
+        h('span', { class: 'bar' + (st.n && st.full === st.n ? ' ok' : '') }, h('span', { style: { width: pct + '%' } })),
+        h('span', { class: 'hw-pt' }, `הגישו ${st.full} מתוך ${st.n}`), st.part ? h('span', { class: 'hw-part' }, `· ${st.part} בחלקן`) : null),
+      h('span', { class: 'hw-w' }, st.waiting ? pill('purple', `ממתינות לציון ${st.waiting}`) : h('span', { class: 'muted' }, '—'))));
+    if (open) out.push(hwPanel(hw));
+  }
+  return h('div', { class: 'hw-list', id: 'hw-list' }, out);
+}
+
+/** שיעורי הבית הפתוחים: עריכה / מחיקה (אישור בשורה), הטבלה, והקוד של התא שנבחר */
+function hwPanel(hw) {
+  const panel = h('div', { class: 'hw-panel', id: 'hw-panel' });
+  if (S.hwEdit && S.hwEdit.id === hw.id) { panel.append(composer()); return panel; }
+  panel.append(h('div', { class: 'hw-acts' },
+    h('span', { class: 'small muted' }, (hw.classId ? 'לכיתה ' + className(hw.classId) : 'לכל התלמידים') + ` · ניתנו ${ago(hw.createdAt)}` + (hw.due ? ` · להגשה עד ${dueText(hw.due)}` : ' · בלי מועד הגשה')),
+    h('span', { class: 'grow' }),
+    h('button', { type: 'button', class: 'btn sm', id: 'hw-edit', onclick: () => openComposer(hw) }, 'עריכה'),
+    h('button', { type: 'button', class: 'btn sm danger', id: 'hw-delete', onclick: () => { S.hwAsk = hw.id; render(); } }, 'מחיקה')));
+  if (S.hwAsk === hw.id) {
+    const go = h('button', { type: 'button', class: 'btn sm danger', id: 'hw-delete-yes' }, 'מחיקה');
+    go.onclick = () => busy(go, async () => {
+      await api('POST', '/v1/me/homework', { op: 'delete', id: hw.id });
+      S.hwAsk = null; S.hwOpen = null; S.open = null; S.cur = null; S.curData = null;
+      await reload(true);
+      toast('שיעורי הבית נמחקו (ההגשות והציונים נשארו)');
+    });
+    panel.append(h('div', { class: 'confirm' }, h('span', { class: 'grow' }, `למחוק את ״${hwTitle(hw)}״? נמחקים רק שיעורי הבית — ההגשות והציונים של התלמידים נשארים.`),
+      go, h('button', { type: 'button', class: 'btn sm ghost', onclick: () => { S.hwAsk = null; render(); } }, 'ביטול')));
+  }
+  panel.append(hwGrid(hw));
+  if (S.open) panel.append(detailPane());
+  return panel;
+}
+
+/** הטבלה של שיעורי בית: שורה לכל תלמיד (לפי הא"ב), עמודה לכל שאלה — כמו "לפי תרגיל" — ושתי עמודות סיכום */
+function hwGrid(hw) {
+  const act = hwStudents(hw);
+  // תלמיד שעזב — רק אם הגיש משהו מהשאלות האלה
+  const who = act.concat(inFolder(S.folder).filter(s => s.left && (!hw.classId || s.classId === hw.classId) && hw.items.some(id => byBank(s).has(id))))
+    .sort((a, b) => collator.compare(a.name || a.email, b.name || b.email));
+  if (!who.length) {
+    return h('div', { class: 'tablewrap' }, h('div', { class: 'empty' }, hw.classId ? 'אין עדיין תלמידים בכיתה הזו. מעבירים תלמידים לכיתה בטאב "תלמידים".' : hwEmpty()));
+  }
+  const head = h('tr', null, h('th', { class: 'gname', scope: 'col' }, 'תלמיד'),
+    h('th', { class: 'gsum', scope: 'col', title: 'כמה מהשאלות התלמיד הגיש' }, 'הגיש'),
+    h('th', { class: 'gsum', scope: 'col', title: 'ממוצע הציונים שנתת על השאלות האלה' }, 'ממוצע'),
+    hw.items.map(id => {
+      const got = act.filter(s => byBank(s).has(id)).length;
+      const fresh = act.filter(s => { const w = byBank(s).get(id); return w && !w.seen; }).length;
+      return h('th', { class: 'gcol', scope: 'col' }, attachPreview(h('span', { class: 'gt' }, qTitle(id)), { source: 'bank', bankId: id }, 'java'),
+        h('span', { class: 'gc' }, `${got}/${act.length}`, newDot(fresh)));
+    }));
+  const rows = who.map(s => {
+    const m = byBank(s);
+    const mine = hw.items.filter(id => m.has(id));
+    const grades = mine.map(id => m.get(id).grade).filter(g => g != null);
+    return h('tr', null,
+      h('th', { class: 'gname', scope: 'row' }, h('span', { class: 'gn' }, s.name || s.email), s.left ? pill('gray', 'עזב') : null),
+      h('td', { class: 'gsum' + (mine.length === hw.items.length ? ' gfull' : '') }, `${mine.length}/${hw.items.length}`),
+      h('td', { class: 'gsum gavg' }, grades.length ? String(Math.round(grades.reduce((a, b) => a + b, 0) / grades.length)) : '—'),
+      hw.items.map(id => gridCell(s, qTitle(id), m.get(id), isLate(hw, m.get(id)))));
+  });
+  return h('div', { class: 'stack', style: { gap: '8px' } }, gridLegend(!!hw.due),
+    h('div', { class: 'tablewrap gwrap' }, h('table', { class: 'gridt', id: 'hw-grid' }, h('thead', null, head), h('tbody', null, rows))));
+}
+
+/** "סיכום תלמידים": לכל תלמיד — כמה שאלות הגיש מכל מה שקיבל, באיחור, ממוצע, ופס קטן — ריבוע לכל שיעורי בית (החדשים מימין) */
+function hwSummary() {
+  if (!hwList().length) return h('div', { class: 'tablewrap' }, h('div', { class: 'empty', id: 'hw-empty' }, hwEmpty()));
+  const list = inFolder(S.folder).filter(s => !s.left);
+  if (!list.length) return h('div', { class: 'tablewrap' }, h('div', { class: 'empty' }, S.folder === 'all' ? hwEmpty() : 'אין כאן תלמידים עדיין.'));
+  const hws = hwInFolder();
+  const withClass = S.folder === 'all' && data.classes.length > 0;
+  const rows = list.map(s => {
+    const t = hwTotals(s);
+    const strip = h('span', { class: 'hw-strip' }, hws.map(hw => {
+      if (hw.classId && hw.classId !== s.classId) return h('span', { class: 'hw-sq na', title: `${hwTitle(hw)} — לא ניתנו לתלמיד הזה` });
+      const k = hw.items.filter(id => byBank(s).has(id)).length;
+      const late = hw.items.some(id => isLate(hw, byBank(s).get(id)));
+      return h('span', { class: 'hw-sq ' + (k === hw.items.length ? 'full' : k ? 'part' : 'none'), title: `${hwTitle(hw)} · הגיש ${k} מתוך ${hw.items.length}` + (late ? ' · באיחור' : '') });
+    }));
+    const sel = S.open && S.open.kind === 'su' && S.open.id === s.email;
+    return h('tr', { class: sel ? 'sel' : null },
+      h('td', null, h('b', null, s.name || s.email)),
+      withClass ? h('td', { class: 'sub' }, className(s.classId)) : null,
+      h('td', { class: 'num' }, t.total ? [h('span', { class: t.done === t.total ? 'hw-all' : null }, `${t.done} מתוך ${t.total}`)] : h('span', { class: 'muted' }, '—')),
+      h('td', { class: 'num' }, t.late ? h('span', { class: 'hw-late' }, String(t.late)) : h('span', { class: 'muted' }, '—')),
+      h('td', { class: 'num avg' }, t.avg != null ? h('b', null, String(t.avg)) : h('span', { class: 'muted' }, '—')),
+      h('td', null, strip),
+      h('td', null, h('div', { class: 'acts' }, h('button', { type: 'button', class: 'btn sm', onclick: () => openRow('su', s.email) }, 'תרגילים'))));
+  });
+  const legend = h('div', { class: 'glegend' }, h('span', { class: 'gkey' }, h('span', { class: 'hw-sq full' }), 'הגיש הכול'), h('span', { class: 'gkey' }, h('span', { class: 'hw-sq part' }), 'הגיש חלק'),
+    h('span', { class: 'gkey' }, h('span', { class: 'hw-sq none' }), 'לא הגיש'), h('span', { class: 'gkey' }, h('span', { class: 'hw-sq na' }), 'לא ניתנו לו'),
+    h('span', { class: 'gkey' }, `· ריבוע לכל שיעורי בית, החדשים מימין (${hws.length})`));
+  return h('div', { class: 'stack', style: { gap: '8px' } }, legend, h('div', { class: 'tablewrap' }, h('table', { class: 'con-table compact hw-sum', id: 'hw-sum' },
+    h('thead', null, h('tr', null, ['תלמיד', withClass ? 'כיתה' : null, 'הגיש (שאלות)', 'באיחור', 'ממוצע', 'שיעורי בית', ''].filter(x => x !== null).map(x => h('th', null, x)))),
+    h('tbody', null, rows))));
 }
 
 // ------------------------------------------------------------------ חלונית ההגשות

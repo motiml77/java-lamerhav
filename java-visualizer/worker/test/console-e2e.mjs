@@ -551,6 +551,258 @@ await step('רוחב טלפון: אין גלילה לרוחב בעמדת הני�
   await pctx.close();
 });
 
+// ------------------------------------------------------------------ שיעורי בית: מורה עם כיתה של 34 תלמידים, כיתה קטנה, וכמה שיעורי בית
+const HW_SHOTS = process.env.HW_SHOTS || SHOTS;
+mkdirSync(HW_SHOTS, { recursive: true });
+const day = n => new Date(Date.now() + n * 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' });
+await api('POST', '/v1/admin/teacher', { create: true, email: 'rina.hw@ort.org.il', name: 'רינה אברהם', school: 'אורט רחובות', seats: 5 }, bearer(admin));
+const rcode = (await api('GET', '/v1/admin/teacher?email=rina.hw@ort.org.il', null, bearer(admin))).teacher.code;
+await api('POST', '/v1/station/claim', { code: rcode, name: 'עמדה 1', machine: mid(), client: 'dsviz-eclipse/1.0.7', caps: ['register', 'classroom'] });
+const rinaTok = await idToken('rina.hw@ort.org.il', 'רינה אברהם');
+const big = (await api('POST', '/v1/me/class', { op: 'create', name: 'יב 2' }, bearer(rinaTok))).id;
+const small = (await api('POST', '/v1/me/class', { op: 'create', name: 'יא 1' }, bearer(rinaTok))).id;
+const FIRST = ['נועה', 'איתי', 'מאיה', 'יונתן', 'תמר', 'אורי', 'שירה', 'דניאל', 'הילה', 'עומר', 'רוני', 'אביגיל', 'עידו', 'ליה', 'גיא', 'יעל', 'אלון'];
+const LAST = ['כהן', 'לוי', 'מזרחי', 'פרץ', 'ביטון'];
+const pupils = [];
+for (let i = 0; i < 40; i++) pupils.push({ email: `hw.pupil${i}@gmail.com`, name: FIRST[i % FIRST.length] + ' ' + LAST[Math.floor(i / FIRST.length) + (i % 2 ? 2 : 0)], cls: i < 34 ? big : small });
+const H1 = ['stack-sum-size', 'stack-brackets', 'queue-sum-even'], H2 = ['tree-count-sum', 'list-evens-remove'], H3 = ['loops-collatz', 'arrays-counters', 'strings-anagram', 'recursion-digits'];
+// שיעורי בית: לכיתה הגדולה עם מועד שעבר (הגשה עכשיו = באיחור), לכולם עם מועד שעוד לא הגיע, ולכיתה הגדולה בלי מועד
+const hw1 = (await api('POST', '/v1/me/homework', { op: 'save', classId: big, items: H1, title: 'מחסנית ותור', due: day(-3) }, bearer(rinaTok))).id;
+const hw2 = (await api('POST', '/v1/me/homework', { op: 'save', classId: '', items: H2, title: '', due: day(4) }, bearer(rinaTok))).id;
+const hw3 = (await api('POST', '/v1/me/homework', { op: 'save', classId: big, items: H3, title: 'חזרה לבגרות', due: '' }, bearer(rinaTok))).id;
+const meta = {
+  'stack-sum-size': ['מחסנית', 'סכום וגודל של מחסנית'], 'stack-brackets': ['מחסנית', 'סוגריים מאוזנים'], 'queue-sum-even': ['תור', 'סכום תור וזוגיים'],
+  'tree-count-sum': ['עץ בינארי', 'מספר הצמתים וסכום העץ'], 'list-evens-remove': ['שרשרת חוליות', 'שרשרת חדשה והוצאת חוליות'],
+  'loops-collatz': ['לולאות', 'קולץ'], 'arrays-counters': ['מערכים', 'מערך מונים'], 'strings-anagram': ['מחרוזות', 'אנגרמה'], 'recursion-digits': ['רקורסיה', 'ספרות'],
+};
+const results = [{ ran: true, compiles: true, output: 'א', expected: 'א', outputMatch: true }, { ran: true, compiles: true, output: 'א', expected: 'ב', outputMatch: false }, { ran: true, compiles: false, error: 'חסר ;' }];
+async function seedPupil(p, i) {
+  const hdr = await studentPlugin(p.email, p.name);
+  await api('POST', '/v1/student/register', { fullName: p.name, phone: '050' + String(1000000 + i) }, hdr);
+  await api('POST', '/v1/student/join', { code: rcode }, hdr);
+  await api('POST', '/v1/me/member', { op: 'move', student: p.email, classId: p.cls }, bearer(rinaTok));
+  // מי מגיש מה: רוב הכיתה הגישה את כל שיעורי הבית הראשונים, חלק רק חלק; השאר לפי תבנית
+  const mine = [];
+  if (p.cls === big) {
+    if (i % 5 !== 4) mine.push(...(i % 3 === 2 ? H1.slice(0, 2) : H1));
+    if (i % 4 === 0) mine.push(...H3.slice(0, 1 + (i % 3)));
+  }
+  if (i % 3 !== 1) mine.push(...H2.slice(0, i % 6 === 0 ? 1 : 2));
+  for (const [k, id] of mine.entries()) {
+    await api('POST', '/v1/submit', { exercise: { source: 'bank', bankId: id, topic: meta[id][0], title: meta[id][1], level: 'קל' }, app: 'Eclipse',
+      files: [{ path: 'src/Targil.java', text: `public class Targil { // ${p.name}\n    public static void main(String[] args) { }\n}\n` }], check: results[(i + k) % 3] }, hdr);
+  }
+}
+for (let i = 0; i < pupils.length; i += 8) await Promise.all(pupils.slice(i, i + 8).map((p, k) => seedPupil(p, i + k)));
+// ציונים לחלק מההגשות של שיעורי הבית הראשונים (המורה כבר פתחה אותן)
+for (const p of pupils.slice(0, 12)) {
+  const subs = (await api('GET', '/v1/me/submissions?student=' + encodeURIComponent(p.email), null, bearer(rinaTok))).submissions;
+  for (const s of subs.filter(x => x.exercise.bankId === 'stack-sum-size')) await api('POST', '/v1/me/submission/grade', { id: s.id, grade: 70 + (s.id.charCodeAt(3) % 30) }, bearer(rinaTok));
+}
+const con0 = await api('GET', '/v1/me/console', null, bearer(rinaTok));
+assert.equal(con0.students.length, 40);
+assert.deepEqual(con0.homework.map(x => x.id), [hw3, hw2, hw1]);
+console.log('נתוני שיעורי הבית מוכנים');
+
+const hctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 2, locale: 'he-IL' });
+hctx.on('page', p => p.on('pageerror', e => errors.push(String(e))));
+const hp = await hctx.newPage();
+// צילום בלי ההודעה הקופצת (שלא תסתיר את הטבלה); tall — חלון גבוה, כדי שכל 34 השורות ייכנסו בטבלה (שנגללת בתוך 70% מהגובה)
+async function hwShot(name, tall) {
+  await hp.evaluate(() => { const t = document.querySelector('.toast'); if (t) t.hidden = true; });
+  if (tall) await hp.setViewportSize({ width: 1440, height: 2000 });
+  await hp.screenshot({ path: join(HW_SHOTS, name + '.png'), fullPage: true });
+  if (tall) await hp.setViewportSize({ width: 1440, height: 1000 });
+}
+const expectUnseen = () => {
+  // הגשות של שאלות משיעורי הבית שעוד לא נפתחו (כל התלמידים פעילים; שיעורי בית 1 ו-3 — לכיתה הגדולה, 2 — לכולם)
+  let n = 0;
+  for (const s of con0.students) for (const w of s.work) if (!w.seen && ((s.classId === big && (H1.includes(w.bankId) || H3.includes(w.bankId))) || H2.includes(w.bankId))) n++;
+  return n;
+};
+
+await step('שיעורי בית: טאב שלישי עם מספר ההגשות שעוד לא נפתחו; רשימה של שורה דקה לכל שיעורי בית — כיתה, שאלות, מועד ("עבר המועד"), "הגישו X מתוך Y", ממתינות לציון', async () => {
+  await hp.goto(BASE + '/account');
+  await googlePopup(hp, '.gbtn', 'rina.hw@ort.org.il', 'רינה אברהם');
+  await hp.waitForSelector('#tab-hw');
+  assert.equal(await hp.locator('#tab-hw .n').textContent(), '3');
+  assert.equal(await hp.locator('#tab-hw .newdot').textContent(), String(expectUnseen()));
+  await hp.click('#tab-hw');
+  await hp.waitForSelector('#hw-list');
+  assert.equal(await hp.locator('.hw-row').count(), 3);
+  assert.deepEqual(await hp.locator('.hw-row .hw-t b').allTextContents(), ['חזרה לבגרות', 'שיעורי בית ' + new Date().toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem', day: 'numeric', month: 'numeric' }).replace(/\//g, '.'), 'מחסנית ותור']);
+  const r1 = hp.locator(`.hw-row[data-id="${hw1}"]`);
+  assert.ok(await r1.locator('.pill:has-text("עבר המועד")').count(), 'מועד שעבר');
+  assert.equal(await hp.locator(`.hw-row[data-id="${hw2}"] .pill:has-text("עבר המועד")`).count(), 0, 'מועד שעוד לא הגיע');
+  // שיעורי בית 1: לכיתה של 34; מי שלא מדלג (i%5!=4) הגיש — מלא כשלא i%3==2
+  const big34 = pupils.map((p, i) => [p, i]).filter(([p]) => p.cls === big);
+  const full1 = big34.filter(([, i]) => i % 5 !== 4 && i % 3 !== 2).length, part1 = big34.filter(([, i]) => i % 5 !== 4 && i % 3 === 2).length;
+  assert.equal((await r1.locator('.hw-pt').textContent()).trim(), `הגישו ${full1} מתוך 34`);
+  assert.equal((await r1.locator('.hw-part').textContent()).trim(), `· ${part1} בחלקן`);
+  assert.match(await r1.locator('.hw-w').textContent(), /ממתינות לציון \d+/);
+  assert.equal((await hp.locator(`.hw-row[data-id="${hw2}"] .hw-c`).textContent()).trim(), 'כל התלמידים');
+  assert.match(await hp.locator(`.hw-row[data-id="${hw2}"] .hw-pt`).textContent(), /מתוך 40$/);
+  // שורה דקה: שלוש שורות בפחות מ-170 פיקסלים
+  const hgt = await hp.evaluate(() => document.querySelector('#hw-list').getBoundingClientRect().height);
+  assert.ok(hgt < 170, 'גובה הרשימה: ' + hgt);
+});
+
+await step('שיעורי בית: לחיצה על שורה — הטבלה של 34 התלמידים (לפי הא"ב), עמודה לכל שאלה, סימון "באיחור", "הגיש" וממוצע; לחיצה על תא — הקוד והציון', async () => {
+  await hp.click(`.hw-row[data-id="${hw1}"]`);
+  await hp.waitForSelector('#hw-grid');
+  const names = await hp.locator('#hw-grid tbody th.gname .gn').allTextContents();
+  assert.equal(names.length, 34);
+  const coll = new Intl.Collator('he', { numeric: true });
+  assert.deepEqual(names, names.slice().sort(coll.compare), 'לפי הא"ב');
+  assert.equal(await hp.locator('#hw-grid thead th.gcol').count(), 3);
+  assert.ok(await hp.locator('#hw-grid button.g.late').count() > 10, 'הוגש אחרי המועד — מסומן');
+  assert.ok(await hp.locator('.glegend .gkey:has-text("באיחור")').count());
+  assert.ok(await hp.locator('#hw-grid button.g.graded').count() > 0, 'ציונים בתאים');
+  const skip = pupils.findIndex((p, i) => p.cls === big && i % 5 === 4);
+  const skipRow = hp.locator('#hw-grid tbody tr', { has: hp.locator(`.gn:text-is("${pupils[skip].name}")`) }).first();
+  assert.equal(await skipRow.locator('.gno').count(), 3, 'לא הגיש כלום');
+  assert.equal((await skipRow.locator('.gsum').first().textContent()).trim(), '0/3');
+  // התאים באותו מראה של "לפי תרגיל": אותו גודל
+  const sz = await hp.evaluate(() => { const b = document.querySelector('#hw-grid button.g:not(.graded)').getBoundingClientRect(); return [b.width, b.height]; });
+  assert.deepEqual(sz, [26, 26]);
+  await hwShot('hw-list-grid-30-students', true);
+  // מעבר עם העכבר על שם השאלה — השאלה מהמאגר
+  await hp.hover('#hw-grid thead th.gcol .gt.pv-anchor >> nth=1');
+  await hp.waitForSelector('#ex-preview .pv-head');
+  await hp.mouse.move(5, 5);
+  await hp.waitForSelector('#ex-preview', { state: 'detached' });
+  const before = +(await hp.locator('#tab-hw .newdot').textContent());
+  const cell = hp.locator('#hw-grid button.g.new:not(.graded)').first();
+  await cell.click();
+  await hp.waitForSelector('#hw-panel .detail pre.code');
+  assert.ok(await hp.locator('#hw-panel #grade-in').count(), 'שורת הציון — בתוך שיעורי הבית הפתוחים');
+  assert.equal(+(await hp.locator('#tab-hw .newdot').textContent()), before - 1, 'נפתחה — יורדת מהמספר על הטאב');
+  await hp.fill('#grade-in', '95');
+  await hp.click('#grade-save');
+  await hp.waitForSelector('.toast:has-text("הציון 95 נשמר")');
+  assert.ok(await hp.locator('#hw-grid button.g.graded[aria-current="true"]:has-text("95")').count(), 'הציון בתא');
+  await hwShot('hw-grid-cell-code');
+});
+
+await step('שיעורי בית חדשים: הטופס — כיתה, מועד, נושאים (כמה נבחרו בכל אחד), שאלות בשורות דקות עם בלון השאלה, תגיות להסרה; שליחה', async () => {
+  await hp.click('#hw-new');
+  await hp.waitForSelector('#hw-composer .hw-topic');
+  assert.equal(await hp.locator('#hw-send').isDisabled(), true, 'בלי שאלות — אי אפשר לשלוח');
+  assert.equal(await hp.locator('.hw-topic').count(), 10);
+  await hp.selectOption('#hw-class', { label: 'יא 1' });
+  await hp.fill('#hw-due', day(7));
+  await hp.click('.hw-topic:has-text("מחסנית")');
+  await hp.click('.hw-q[data-id="stack-brackets"]');
+  await hp.click('.hw-q[data-id="stack-copy-greater"]');
+  await hp.click('.hw-topic:has-text("תור")');
+  await hp.click('.hw-q[data-id="queue-two-sum"]');
+  await hp.click('.hw-q[data-id="queue-min-last"]');
+  await hp.click('.hw-q[data-id="queue-min-last"]');   // לחיצה שנייה — מוציאה
+  assert.equal(await hp.locator('.hw-topic:has-text("מחסנית") .hw-tn').textContent(), '2');
+  assert.equal(await hp.locator('.hw-topic:has-text("תור") .hw-tn').textContent(), '1');
+  assert.equal(await hp.locator('.hw-chip').count(), 3);
+  assert.equal((await hp.locator('#hw-send').textContent()).trim(), 'שליחה לתלמידים (3 שאלות)');
+  await hp.mouse.move(5, 5);
+  await hp.waitForTimeout(500);
+  await hwShot('hw-composer');
+  await hp.hover('.hw-q[data-id="queue-two-sum"] .hw-qt');
+  await hp.waitForSelector('#ex-preview .pv-head');
+  await hwShot('hw-composer-preview');
+  await hp.mouse.move(5, 5);
+  await hp.waitForSelector('#ex-preview', { state: 'detached' });
+  await hp.locator('.hw-chip[data-id="stack-copy-greater"] .hw-x').click();
+  assert.equal((await hp.locator('#hw-send').textContent()).trim(), 'שליחה לתלמידים (2 שאלות)');
+  await hp.fill('#hw-title', 'תרגול לפני המבחן');
+  await hp.click('#hw-send');
+  await hp.waitForSelector('.toast:has-text("שיעורי הבית נשלחו לכיתה יא 1 (2 שאלות)")');
+  assert.equal(await hp.locator('.hw-row').count(), 4);
+  assert.equal((await hp.locator('.hw-row').first().locator('.hw-t b').textContent()).trim(), 'תרגול לפני המבחן', 'החדשים ראשונים');
+  assert.equal(await hp.locator('.hw-row').first().getAttribute('aria-expanded'), 'true', 'נפתחו');
+  assert.equal(await hp.locator('#hw-grid tbody tr').count(), 6, 'יא 1: שישה תלמידים');
+  // הכיתה האחרונה נזכרת לפעם הבאה
+  await hp.click('#hw-new');
+  await hp.waitForSelector('#hw-class');
+  assert.equal(await hp.locator('#hw-class option:checked').textContent(), 'יא 1');
+  await hp.click('#hw-cancel');
+});
+
+await step('עריכה ומחיקה של שיעורי בית (אישור בשורה); ההגשות נשארות', async () => {
+  await hp.click('.hw-row >> nth=0');   // נסגר
+  await hp.click(`.hw-row[data-id="${hw3}"]`);
+  await hp.waitForSelector('#hw-edit');
+  await hp.click('#hw-edit');
+  await hp.waitForSelector('#hw-panel #hw-composer');
+  assert.equal(await hp.locator('.hw-chip').count(), 4);
+  assert.equal((await hp.locator('#hw-send').textContent()).trim(), 'שמירת השינויים (4 שאלות)');
+  await hp.locator('.hw-chip[data-id="recursion-digits"] .hw-x').click();
+  await hp.click('#hw-send');
+  await hp.waitForSelector('.toast:has-text("השינויים נשמרו")');
+  assert.equal((await hp.locator(`.hw-row[data-id="${hw3}"] .hw-n`).textContent()).trim(), '3 שאלות');
+  await hp.click('#hw-delete');
+  await hp.waitForSelector('#hw-panel .confirm');
+  assert.match(await hp.locator('#hw-panel .confirm').textContent(), /ההגשות והציונים של התלמידים נשארים/);
+  await hp.click('#hw-delete-yes');
+  await hp.waitForSelector('.toast:has-text("שיעורי הבית נמחקו")');
+  assert.equal(await hp.locator(`.hw-row[data-id="${hw3}"]`).count(), 0);
+  const con = await api('GET', '/v1/me/console', null, bearer(rinaTok));
+  assert.ok(con.students.some(s => s.work.some(w => w.bankId === 'loops-collatz')), 'ההגשות נשארו');
+});
+
+await step('"סיכום תלמידים": שורה לכל תלמיד — הגיש X מתוך Y, באיחור, ממוצע, ופס של ריבועים (ריבוע לכל שיעורי בית); סינון לפי כיתה; העמודה "שיעורי בית" בטבלת התלמידים', async () => {
+  await hp.click('#hw-view-sum');
+  await hp.waitForSelector('#hw-sum');
+  assert.equal(await hp.locator('#hw-sum tbody tr').count(), 40);
+  assert.equal(await hp.locator('#hw-sum tbody tr').first().locator('.hw-sq').count(), 3, 'שלושה שיעורי בית');
+  assert.ok(await hp.locator('#hw-sum .hw-sq.na').count() >= 6, 'יא 1 לא קיבלו את שיעורי הבית של יב 2');
+  assert.ok(await hp.locator('#hw-sum .hw-late').count() > 0, 'יש באיחור');
+  await hwShot('hw-summary-all');
+  await hp.selectOption('#hw-folder', { label: 'יב 2 (34)' });
+  await hp.waitForSelector('#hw-sum');
+  assert.equal(await hp.locator('#hw-sum tbody tr').count(), 34);
+  await hwShot('hw-summary-class');
+  await hp.click('#hw-view-list');
+  assert.equal(await hp.locator('.hw-row').count(), 2, 'ב"יב 2": שלה ושל כולם');
+  await hp.click('#tab-su');
+  await hp.waitForSelector('th.hwcol:has-text("ש״ב")');
+  assert.equal(await hp.locator('.folder[aria-current="true"] span:first-child').textContent(), 'יב 2', 'אותה כיתה כמו בשיעורי בית');
+  assert.match(await hp.locator('.con-table tbody tr td.hwcol').first().textContent(), /^\d+\/\d+$/);
+  const fits = await hp.evaluate(() => { const w = document.querySelector('.con-main .tablewrap'); return w.scrollWidth - w.clientWidth; });
+  assert.ok(fits <= 1, 'טבלת התלמידים רחבה מדי ב-' + fits + ' פיקסלים');
+});
+
+await step('שיעורי בית: מצב ריק — מורה בלי שיעורי בית / בלי תלמידים; ורוחב טלפון בלי גלילה לצד', async () => {
+  await api('POST', '/v1/admin/teacher', { create: true, email: 'new.hw@ort.org.il', name: 'מורה חדשה', school: 'אורט', seats: 2 }, bearer(admin));
+  const ncode = (await api('GET', '/v1/admin/teacher?email=new.hw@ort.org.il', null, bearer(admin))).teacher.code;
+  await api('POST', '/v1/station/claim', { code: ncode, name: 'עמדה 1', machine: mid(), client: 'dsviz-eclipse/1.0.7', caps: ['register', 'classroom'] });
+  const nctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, locale: 'he-IL' });
+  nctx.on('page', p => p.on('pageerror', e => errors.push(String(e))));
+  const np = await nctx.newPage();
+  await np.goto(BASE + '/account');
+  await googlePopup(np, '.gbtn', 'new.hw@ort.org.il', 'מורה חדשה');
+  await np.waitForSelector('#tab-hw');
+  await np.click('#tab-hw');
+  await np.waitForSelector('#hw-empty');
+  assert.match(await np.textContent('#hw-empty'), /עוד אין תלמידים שמחוברים אליך/);
+  await nctx.close();
+  await hp.click('#tab-hw');
+  await hp.selectOption('#hw-folder', { label: 'בלי כיתה (0)' });
+  assert.ok(await hp.locator('.hw-row').count() >= 1, 'של כולם — גם למי שבלי כיתה');
+  const pctx = await browser.newContext({ viewport: { width: 400, height: 860 }, deviceScaleFactor: 2, locale: 'he-IL' });
+  const pp = await pctx.newPage();
+  await pp.goto(BASE + '/account');
+  await googlePopup(pp, '.gbtn', 'rina.hw@ort.org.il', 'רינה אברהם');
+  await pp.waitForSelector('#tab-hw');
+  await pp.click('#tab-hw');
+  await pp.waitForSelector('#hw-list');
+  await pp.click('.hw-row >> nth=1');
+  await pp.waitForSelector('#hw-grid');
+  const over = await pp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  assert.ok(over <= 1, 'גלילה לרוחב בשיעורי בית: ' + over);
+  await pp.screenshot({ path: join(HW_SHOTS, 'hw-phone.png'), fullPage: false });
+  await pctx.close();
+  await hctx.close();
+});
+
 assert.deepEqual(errors, [], 'שגיאות JavaScript בדפים: ' + errors.join(' | '));
 await browser.close();
 server.kill();
